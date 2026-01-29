@@ -62,7 +62,9 @@ public class Robot extends TimedRobot {
     }
 
     @Override
-    public void teleopPeriodic() {}
+    public void teleopPeriodic() {
+        ShuffleboardControl.update();
+    }
 
     @Override
     public void teleopExit() {}
