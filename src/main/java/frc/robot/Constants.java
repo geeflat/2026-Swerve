@@ -19,13 +19,45 @@ public final class Constants {
   }
   public static class IntakeConstants {
     public static final int intakeMotor1ID = 0;
-    public static final String intakemotor1CANBus = "CANivore1";
+    public static final String intakemotor1CANBus = "canivore1";
     public static final double intakeSpeed = 0.3;
   }
   public static class ShooterConstants {
     public static final int shooterMotor1ID = 1;
-    public static final String shootermotor1CANBus = "CANivore";
+    public static final String shootermotor1CANBus = "canivore";
     public static final double shooterSpeed = 0.5;
+  }
+  public static class IntakeExtenderConstants{
+    public static final int leaderExtenderID = 2;
+    public static final String leaderExtenderCANBus = "canivore";
+    public static final int followerExtenderID = 3;
+    public static final String followerExtenderCANBus = "canivore";
+
+    public static final int IntakeGearRatio = 12;
+
+    public static final int LEFT_ENCODER_DIO = 0;   // DIO port for left encoder (left = leader)
+    public static final int RIGHT_ENCODER_DIO = 1;  // DIO port for right encoder
+
+    public static final double kP = 0.1;
+    public static final double kI = 0.0;
+    public static final double kD = 0.0;
+    public static final double kV = 0.0;
+    public static final double kG = 0.0;
+
+    public static final double MOTION_CRUISE_VELOCITY = 600;
+    public static final double MOTION_ACCELERATION = 1200;
+
+    public static final double UP_POSITION_DEGREES = 0;
+    public static final double DOWN_POSITION_DEGREES = 90;
+
+    public static final double POSITION_TOLERANCE_DEGREES = 2.0;
+    public static final double MAX_CURRENT_AMPS = 40.0;
+
+    public static final boolean INVERT_LEADER_MOTOR = false;
+    public static final boolean INVERT_FOLLOWER_MOTOR = true;
+
+    public static final int EncoderTicksPerRevolution = 2048;
+    public static final double SlewRateLimiter = 3.0; // units per second
   }
 
 }

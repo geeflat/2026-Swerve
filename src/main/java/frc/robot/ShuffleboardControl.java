@@ -36,7 +36,6 @@ public class ShuffleboardControl {
             .withSize(4, 2)                   // Make it big and prominent
             .getEntry();
 
-        // Optional: Add a label or note above/beside it
         Shuffleboard.getTab("Motor Controls")
             .add("E-STOP WARNING", "PRESS TO KILL ALL MOTORS")
             .withWidget(BuiltInWidgets.kTextView)
@@ -92,23 +91,23 @@ public class ShuffleboardControl {
     ) {
         ShuffleboardLayout layout = createMotorLayout(name);
 
-        GenericEntry positionSetpoint = layout.add("Position Setpoint", 0.0)
+        GenericEntry positionSetpoint = layout.add("Position Degrees", 0.0)
                 .withWidget(BuiltInWidgets.kNumberSlider)
-                .withProperties(Map.of("min", -1.0, "max", 1.0, "block increment", 0.05))
+                .withProperties(Map.of("min", 0, "max", 90, "block increment", 5))
                 .withSize(3, 5)
-                .withPosition(0 + (nextColumn * 4), 3)
+                .withPosition(0 + (nextColumn * 3), 0)
                 .getEntry();
 
         GenericEntry goButton = layout.add("Go to Position", false)
                 .withWidget(BuiltInWidgets.kToggleButton)  // or use a command button if preferred
                 .withSize(3, 5)
-                .withPosition(0  + (nextColumn * 4),3)
+                .withPosition(0  + (nextColumn * 3),0)
                 .getEntry();
 
         GenericEntry currentPosition = layout.add("Current Position", 0.0)
-                .withWidget(BuiltInWidgets.kTextView)
+                .withWidget(BuiltInWidgets.kDial)
                 .withSize(3, 5)
-                .withPosition(0 + (nextColumn * 4), 3)
+                .withPosition(0 + (nextColumn * 3), 0)
                 .getEntry();
 
         motorGroups.add(new MotorControlGroup(
@@ -120,7 +119,7 @@ public class ShuffleboardControl {
     private static ShuffleboardLayout createMotorLayout(String name) {
         return tab.getLayout(name, BuiltInLayouts.kList)
                 .withSize(3, 5)
-                .withPosition(motorGroups.size() * 4, 0)  // Auto-place horizontally; adjust as needed
+                .withPosition(motorGroups.size() * 3, 2)  // Auto-place horizontally; adjust as needed
                 .withProperties(Map.of("Label position", "TOP"));
     }
 
@@ -181,66 +180,67 @@ public class ShuffleboardControl {
                 enabled.setBoolean(false);  // Disable individual toggle too
             }
         }
-    // void update() {
-    //     if (isContinuous) {
-    //         boolean isEnabled = enabled.getBoolean(false);
-    //         double power = isEnabled ? powerSetpoint.getDouble(0.0) : 0.0;
-    //         motor.setPower(power);
-    //         currentPower.setDouble(power);  // Or better: motor.getPower() if your accessor provides it
-    //     } else {
-    //         if (goButton.getBoolean(false)) {
-    //             double target = positionSetpoint.getDouble(0.0);
-    //             motor.setPosition(target);
-    //             goButton.setBoolean(false);  // Reset button after triggering
-    //         }
-    //         currentPosition.setDouble(motor.getPosition());  // ← Now this will resolve
-    //     }
-    // }
         void update() {
             if (isContinuous) {
-                boolean currentlyEnabled = enabled.getBoolean(false);
-                double currentSetpoint = powerSetpoint.getDouble(0.0);
-
-                if (currentlyEnabled) {
-                // Detect if setpoint changed since last update (approx while enabled)
-                if (Math.abs(currentSetpoint - lastSetpoint) > 0.001) {  // Use epsilon for floating point
-                // Change detected while enabled → auto-stop and disable
-                    motor.setPower(0.0);
-                    currentPower.setDouble(0.0);
-                    enabled.setBoolean(false);
-                    lastAppliedPower = 0.0;  // Reset applied tracking
-                } else {
-                // No change → apply and track
-                    motor.setPower(currentSetpoint);
-                    currentPower.setDouble(motor.getPower());  // Or currentSetpoint if no get
-                    lastAppliedPower = currentSetpoint;
-                }
-                } else {
-                    motor.setPower(0.0);
-                    currentPower.setDouble(0.0);
-                    // Do not reset lastApplied when disabled — allows re-enable to new value if changed while off
-                }
-            lastSetpoint = currentSetpoint;  // Always update for next cycle
+                boolean isEnabled = enabled.getBoolean(false);
+                double power = isEnabled ? powerSetpoint.getDouble(0.0) : 0.0;
+                motor.setPower(power);
+                currentPower.setDouble(power);  // Or better: motor.getPower() if your accessor provides it
             } else {
-        // Position mode (similar logic)
-            boolean goPressed = goButton.getBoolean(false);
-            double currentSetpoint = positionSetpoint.getDouble(0.0);
-                if (goPressed) {
-                    if (Math.abs(currentSetpoint - lastSetpoint) > 0.001) {
-                        // Change while "go" active → cancel
-                        goButton.setBoolean(false);
-                        // Optional: motor.stop();
-                    } else {
-                        motor.setPosition(currentSetpoint);
-                        goButton.setBoolean(false);  // Reset after apply
-                        lastAppliedPosition = currentSetpoint;
-                    }
+                if (goButton.getBoolean(false)) {
+                    double target = positionSetpoint.getDouble(0.0);
+                    motor.setPosition(target);
+                    goButton.setBoolean(false);  // Reset button after triggering
                 }
-                currentPosition.setDouble(motor.getPosition());
-
-                lastSetpoint = currentSetpoint;
+                currentPosition.setDouble(motor.getPosition());  // Now this will resolve
             }
-        }   
+        }
+        // void update() {
+        //     if (isContinuous) {
+        //         boolean currentlyEnabled = enabled.getBoolean(false);
+        //         double currentSetpoint = powerSetpoint.getDouble(0.0);
+
+        //         if (currentlyEnabled) {
+        //         // Detect if setpoint changed since last update (approx while enabled)
+        //         if (Math.abs(currentSetpoint - lastSetpoint) > 0.001) {  // Use epsilon for floating point
+        //         // Change detected while enabled → auto-stop and disable
+        //             motor.setPower(0.0);
+        //             currentPower.setDouble(0.0);
+        //             enabled.setBoolean(false);
+        //             lastAppliedPower = 0.0;  // Reset applied tracking
+        //         } else {
+        //         // No change → apply and track
+        //             motor.setPower(currentSetpoint);
+        //             currentPower.setDouble(motor.getPower());  // Or currentSetpoint if no get
+        //             lastAppliedPower = currentSetpoint;
+        //         }
+        //         } else {
+        //             motor.setPower(0.0);
+        //             currentPower.setDouble(0.0);
+        //             // Do not reset lastApplied when disabled — allows re-enable to new value if changed while off
+        //         }
+        //     lastSetpoint = currentSetpoint;  // Always update for next cycle
+        //     } else {
+        // // Position mode (similar logic)
+        //     boolean goPressed = goButton.getBoolean(false);
+        //     double currentSetpoint = positionSetpoint.getDouble(0.0);
+        //         if (goPressed) {
+
+        //             if (Math.abs(currentSetpoint - lastSetpoint) > 0.001) {
+        //                 // Change while "go" active → cancel
+        //                 goButton.setBoolean(false);
+        //                 // Optional: motor.stop();
+        //             } else {
+        //                 motor.setPosition(currentSetpoint);
+        //                 goButton.setBoolean(false);  // Reset after apply
+        //                 lastAppliedPosition = currentSetpoint;
+        //             }
+        //         }
+        //         currentPosition.setDouble(motor.getPosition());
+
+        //         lastSetpoint = currentSetpoint;
+        //     }
+        // }   
     }
 
     // ------------------------------------------------------------------------

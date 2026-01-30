@@ -23,12 +23,14 @@ import frc.robot.subsystems.CommandSwerveDrivetrain;
 
 import frc.robot.subsystems.IntakeSubsystem;
 import frc.robot.subsystems.ShooterSubsystem;
+import frc.robot.subsystems.IntakeExtender;
 
 
 public class RobotContainer {
 
     IntakeSubsystem intake = new IntakeSubsystem();
     ShooterSubsystem shooter = new ShooterSubsystem();
+    IntakeExtender intakeExtender = new IntakeExtender();
 
     private double MaxSpeed = 1.0 * TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
     private double MaxAngularRate = RotationsPerSecond.of(0.75).in(RadiansPerSecond); // 3/4 of a rotation per second max angular velocity

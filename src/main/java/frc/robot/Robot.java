@@ -22,6 +22,7 @@ public class Robot extends TimedRobot {
 
     public Robot() {
         m_robotContainer = new RobotContainer();
+        addPeriodic(ShuffleboardControl::update, 0.020, 0.005);
     }
 
     @Override
@@ -63,7 +64,7 @@ public class Robot extends TimedRobot {
 
     @Override
     public void teleopPeriodic() {
-        ShuffleboardControl.update();
+        // ShuffleboardControl.update();
     }
 
     @Override

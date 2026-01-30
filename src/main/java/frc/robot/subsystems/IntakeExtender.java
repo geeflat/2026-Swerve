@@ -1,0 +1,326 @@
+// Copyright (c) FIRST and other WPILib contributors.
+// Open Source Software; you can modify and/or share it under the terms of
+// the WPILib BSD license file in the root directory of this project.
+
+package frc.robot.subsystems;
+import frc.robot.Constants;
+import frc.robot.ShuffleboardControl;
+import frc.robot.Constants.IntakeExtenderConstants;
+
+import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
+import com.ctre.phoenix6.configs.Slot0Configs;
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.MotionMagicVoltage;
+import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.InvertedValue;
+import com.ctre.phoenix6.signals.NeutralModeValue;
+
+import edu.wpi.first.math.filter.SlewRateLimiter;
+import edu.wpi.first.networktables.GenericEntry;
+import edu.wpi.first.util.datalog.DoubleLogEntry;
+import edu.wpi.first.wpilibj.DutyCycleEncoder;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
+
+import com.ctre.phoenix6.controls.DutyCycleOut;
+import com.ctre.phoenix6.controls.Follower;
+import com.ctre.phoenix6.signals.MotorAlignmentValue;
+
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
+
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
+import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
+import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
+
+
+public class IntakeExtender extends SubsystemBase {
+
+    private GenericEntry rampTestActiveEntry;
+    
+    // motors for intake extender
+    private final TalonFX leaderMotor;      // left
+    private final TalonFX followerMotor;    // right
+
+    // encoders for intake extender
+    private final DutyCycleEncoder leaderEncoder;
+    private final DutyCycleEncoder followerEncoder;
+
+    // MotionMagic control
+    private final MotionMagicVoltage motionMagicRequest = new MotionMagicVoltage(0);
+
+    private double currentTargetTicks = 0.0; // for gravity compensation, monitor in periodic() to make sure extender isn't sagging
+
+    // "Slew rate" limits jerk, improves smoothness of motion
+    // private final SlewRateLimiter outputLimiter = new SlewRateLimiter(Constants.IntakeExtenderConstants.SlewRateLimiter); // 3 units per second (optional)
+
+    // target setpoint for the extender position (start up)
+    private double targetPositionDegrees = Constants.IntakeExtenderConstants.UP_POSITION_DEGREES;
+
+    // timer for testing
+    private final Timer timer = new Timer();
+    private double rampStartDegrees = 0.0;
+    private boolean rampActive = false;
+    private double rampSpeedDegreesPerSec = 3.0; // degrees per second
+  
+    public IntakeExtender() {
+        // initialize motors
+        leaderMotor = new TalonFX(Constants.IntakeExtenderConstants.leaderExtenderID, Constants.IntakeExtenderConstants.leaderExtenderCANBus);
+        followerMotor = new TalonFX(Constants.IntakeExtenderConstants.followerExtenderID, Constants.IntakeExtenderConstants.followerExtenderCANBus);
+
+        // configure leader
+        TalonFXConfiguration leaderConfig = new TalonFXConfiguration();
+        leaderConfig.MotorOutput.Inverted = Constants.IntakeExtenderConstants.INVERT_LEADER_MOTOR ? InvertedValue.Clockwise_Positive : InvertedValue.CounterClockwise_Positive;
+        leaderConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake; // We don't want the motor to move when it loses power
+        leaderConfig.CurrentLimits = new CurrentLimitsConfigs().withStatorCurrentLimit(Constants.IntakeExtenderConstants.MAX_CURRENT_AMPS).withStatorCurrentLimitEnable(true);
+
+        // PID Control (Motion Magic)
+        leaderConfig.Slot0 = new Slot0Configs()
+            .withKP(Constants.IntakeExtenderConstants.kP)
+            .withKI(Constants.IntakeExtenderConstants.kI)
+            .withKD(Constants.IntakeExtenderConstants.kD)
+            .withKV(Constants.IntakeExtenderConstants.kV)
+            .withKG(Constants.IntakeExtenderConstants.kG);
+        leaderConfig.MotionMagic.MotionMagicCruiseVelocity = Constants.IntakeExtenderConstants.MOTION_CRUISE_VELOCITY;
+        leaderConfig.MotionMagic.MotionMagicAcceleration= Constants.IntakeExtenderConstants.MOTION_ACCELERATION;
+
+        leaderMotor.getConfigurator().apply(leaderConfig);
+
+        // configure follower
+        TalonFXConfiguration followerConfig = new TalonFXConfiguration();
+        followerConfig.MotorOutput.Inverted = Constants.IntakeExtenderConstants.INVERT_FOLLOWER_MOTOR ? InvertedValue.Clockwise_Positive : InvertedValue.CounterClockwise_Positive;
+        followerConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+        followerConfig.CurrentLimits = leaderConfig.CurrentLimits;
+        followerMotor.setControl(new Follower(leaderMotor.getDeviceID(),MotorAlignmentValue.Opposed));
+
+        followerMotor.getConfigurator().apply(followerConfig);
+
+        leaderEncoder = new DutyCycleEncoder(Constants.IntakeExtenderConstants.LEFT_ENCODER_DIO);
+        followerEncoder = new DutyCycleEncoder(Constants.IntakeExtenderConstants.RIGHT_ENCODER_DIO);
+
+        // initialize motion magic for gravity compensation
+        motionMagicRequest.Position = 0.0;
+        motionMagicRequest.FeedForward = 0.0;
+
+        // initialize position from encoders
+        resetPositionFromEncoders();
+
+        // initialize & start timer
+        timer.reset();
+        timer.start();
+
+        ShuffleboardTab tab = Shuffleboard.getTab("IntakeExtender");
+        rampTestActiveEntry = tab.add("Ramp Test Active", false)
+            .withWidget(BuiltInWidgets.kToggleButton)
+            .getEntry();
+
+        // register leader with shuffleboard (follower should be same-ish)
+        ShuffleboardControl.registerPositionMotor(
+            "Intake Extender Leader",
+            Constants.IntakeExtenderConstants.leaderExtenderID,
+            Constants.IntakeExtenderConstants.leaderExtenderCANBus,
+            new ShuffleboardControl.MotorAccessor() {
+                @Override
+                    public void setPower(double power) {
+                        stop();;
+                    }
+    
+                    @Override
+                    public double getPower() {
+                        return getPower();
+                    }
+    
+                    @Override
+                    public void setPosition(double pos) {
+                        setPosition(pos);
+                    }
+    
+                    @Override
+                    public double getPosition() {
+                        return getPositionDegrees();
+                    }
+            }
+        );
+    }
+
+    public void resetPositionFromEncoders(){
+        double leftPos = leaderEncoder.get();
+        double rightPos = followerEncoder.get();
+
+        double averagePos = (leftPos + rightPos) / 2.0;
+
+        double diffDegrees = Math.abs(leftPos - rightPos) * 360; // convert to degrees
+        if (diffDegrees > 5.0) {
+            System.out.println("Warning: Intake Extender encoder disagreement: " + diffDegrees + " degrees");
+        }
+
+        double motorTicks = averagePos * Constants.IntakeExtenderConstants.IntakeGearRatio * Constants.IntakeExtenderConstants.EncoderTicksPerRevolution;
+
+        leaderMotor.setPosition(motorTicks);
+    }
+
+    // move the extender up/down
+    public void setPosition(double positionDegrees) {
+        System.out.println("setPosition is called with "+positionDegrees);
+
+        if (leaderMotor == null){
+            System.out.println("leaderMotor is null!");
+            return;
+        }
+        if (motionMagicRequest == null){
+            System.out.println("motionMagicRequest is null!");
+            return;
+        }
+
+        targetPositionDegrees = positionDegrees;
+
+        double targetTicks = (positionDegrees / 360.0) * Constants.IntakeExtenderConstants.IntakeGearRatio * Constants.IntakeExtenderConstants.EncoderTicksPerRevolution;
+        currentTargetTicks = targetTicks;
+
+        // do the motion magic stuff.
+        motionMagicRequest.Position = targetTicks;
+        motionMagicRequest.FeedForward = calculateGravityFF(); // gravity compensation
+        leaderMotor.setControl(motionMagicRequest);
+    }
+
+    public void extenderUp() {
+        setPosition(Constants.IntakeExtenderConstants.UP_POSITION_DEGREES);
+    }
+
+    public void extenderDown() {
+        setPosition(Constants.IntakeExtenderConstants.DOWN_POSITION_DEGREES);
+    }
+
+    public boolean atTargetPosition() {
+        return Math.abs(getPositionDegrees() - targetPositionDegrees) <= Constants.IntakeExtenderConstants.POSITION_TOLERANCE_DEGREES;
+    }
+
+    public double getPositionDegrees() {
+        double motorTicks = leaderMotor.getPosition().getValueAsDouble();
+        return (motorTicks / (Constants.IntakeExtenderConstants.IntakeGearRatio * Constants.IntakeExtenderConstants.EncoderTicksPerRevolution)) * 360.0;
+    }
+
+    // compute gravity feed forward value in volts
+    public double calculateGravityFF(){
+        double currentDegrees = getPositionDegrees();
+        double currentRadians = Math.toRadians(currentDegrees);
+        return Constants.IntakeExtenderConstants.kG * Math.cos(currentRadians); // when at 90 degrees, cos(90) = 0, so there's no feedforward compensation. When at 0 degrees, maximum feed forward.
+    }
+
+    public void stop() {
+        leaderMotor.stopMotor();
+        rampActive = false;
+        timer.reset();
+        targetPositionDegrees = getPositionDegrees();
+        currentTargetTicks = (targetPositionDegrees/360.0) * Constants.IntakeExtenderConstants.IntakeGearRatio * Constants.IntakeExtenderConstants.EncoderTicksPerRevolution;
+        System.out.println("Intake Extender stopped at "+targetPositionDegrees+" degrees");
+    }
+
+    void setPositionTicks(double motorTicks){
+
+        System.out.println("setPositionTicks is called with "+motorTicks);
+
+        if (leaderMotor == null){
+            System.out.println("leaderMotor is null!");
+            return;
+        }
+        if (motionMagicRequest == null){
+            System.out.println("motionMagicRequest is null!");
+            return;
+        }
+        currentTargetTicks = motorTicks;
+        motionMagicRequest.Position = motorTicks;
+        motionMagicRequest.FeedForward = calculateGravityFF();
+        leaderMotor.setControl(motionMagicRequest);
+    }
+
+    double getPositionTicks(){
+        return leaderMotor.getPosition().getValueAsDouble();
+    }
+
+    void setPower(double power){
+        leaderMotor.setControl(new DutyCycleOut(power));
+    }
+
+    double getPower(){
+        return leaderMotor.getDutyCycle().getValueAsDouble();
+    }
+
+    public void startRampTest(){
+        rampStartDegrees = getPositionDegrees();
+        rampActive = true;
+        System.out.println("Starting ramp test from "+rampStartDegrees+" degrees");
+    }
+
+    public void stopRampTest(){
+        rampActive = false;
+        System.out.println("Stopping ramp test at " + getPositionDegrees() + " degrees");
+    }
+
+    /**
+     * Example command factory method.
+     *
+     * @return a command
+     */
+    public Command exampleMethodCommand() {
+        // Inline construction of command goes here.
+        // Subsystem::RunOnce implicitly requires `this` subsystem.
+        return runOnce(
+            () -> {
+            /* one-time action goes here */
+            });
+    }
+
+    /**
+     * An example method querying a boolean state of the subsystem (for example, a digital sensor).
+     *
+     * @return value of some boolean subsystem state, such as a digital sensor.
+     */
+    public boolean exampleCondition() {
+        // Query some boolean state, such as a digital sensor.
+        return false;
+    }
+
+    @Override
+    public void periodic() {
+        // This method will be called once per scheduler run
+        double gravityFF = calculateGravityFF();
+
+        if (targetPositionDegrees != Double.NaN){
+            motionMagicRequest.FeedForward = gravityFF;
+            motionMagicRequest.Position = currentTargetTicks;
+            leaderMotor.setControl(motionMagicRequest);
+        }
+
+    boolean wantRamp = rampTestActiveEntry.getBoolean(false);
+
+    if(wantRamp && !rampActive) {
+      startRampTest();
+    } else if(!wantRamp && rampActive) {
+      stopRampTest();
+    }
+    if (rampActive){
+        double elapsedTime = timer.get();
+        double newPositionDegrees = rampStartDegrees + (rampSpeedDegreesPerSec * elapsedTime);
+        if(newPositionDegrees > 90.0) {
+            newPositionDegrees = 90.0;
+            rampActive = false;
+            rampTestActiveEntry.setBoolean(false);
+            System.out.println("Ramp test reached max position, stopping at "+newPositionDegrees+" degrees");
+        }
+
+        System.out.println("Ramp test: moving to "+newPositionDegrees+" degrees");
+        setPosition(newPositionDegrees);
+        if (Math.floor(elapsedTime * 2)!= Math.floor((elapsedTime - 0.02) * 2))
+        {
+            System.out.println("  Current position: "+getPositionDegrees()+" degrees");
+        }
+    }
+
+    }
+
+    @Override
+    public void simulationPeriodic() {
+        // This method will be called once per scheduler run during simulation
+    }
+}
