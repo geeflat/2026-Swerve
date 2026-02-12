@@ -51,6 +51,8 @@ public class RobotContainer {
     IndexSubsystem index;
 
     private Constants.robotStates.State currentState;
+    private FieldConstants.FieldRegion currentRegion;
+    public FieldConstants.FieldRegion getFieldLocation() { return currentRegion; }
 
     private double MaxSpeed = 1.0 * TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
     private double MaxAngularRate = RotationsPerSecond.of(0.75).in(RadiansPerSecond); // 3/4 of a rotation per second max angular velocity

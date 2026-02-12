@@ -4,7 +4,6 @@
 
 package frc.robot;
 
-import com.ctre.phoenix6.signals.MotorAlignmentValue;
 
 /**
  * The Constants class provides a convenient place for teams to hold robot-wide numerical or boolean
