@@ -5,25 +5,45 @@
 package frc.robot.subsystems;
 import frc.robot.Constants;
 
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.MotorAlignmentValue;
+import com.ctre.phoenix6.signals.NeutralModeValue;
 
-import edu.wpi.first.wpilibj.motorcontrol.Talon;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import com.ctre.phoenix6.controls.Follower;
 
 import frc.robot.Constants;
 
 public class IndexSubsystem extends SubsystemBase {
 
   private TalonFX horizontalIndexMotor;
-  private TalonFX verticalIndexMotor;
+  private TalonFX verticalIndexLeader;
+  private TalonFX verticalIndexFollower;
 
   /** Creates a new IndexSubsystem. */
   public IndexSubsystem() {
 
     horizontalIndexMotor = new TalonFX(Constants.IndexConstants.horizontalIndexMotorID, Constants.IndexConstants.horizontalIndexMotorCANBus);
-    verticalIndexMotor = new TalonFX(Constants.IndexConstants.verticalIndexMotorID, Constants.IndexConstants.verticalIndexMotorCANBus);
+    verticalIndexLeader = new TalonFX(Constants.IndexConstants.verticalIndexMotorID, Constants.IndexConstants.verticalIndexMotorCANBus);
+    verticalIndexFollower = new TalonFX(Constants.IndexConstants.verticalIndexFollowerID, Constants.IndexConstants.verticalIndexFollowerCANBus);
+
+    verticalIndexFollower.setControl(new Follower(verticalIndexLeader.getDeviceID(),
+      Constants. IndexConstants.INVERT_FOLLOWER
+        ? MotorAlignmentValue.Opposed
+        : MotorAlignmentValue.Aligned));
+
+    var config = new TalonFXConfiguration();
+    config.CurrentLimits.SupplyCurrentLimit = Constants.IndexConstants.INDEX_CURRENT_LIMIT;
+    config.CurrentLimits.SupplyCurrentLimitEnable = Constants.IndexConstants.INDEX_CURRENT_LIMIT_ENABLE;
+    config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+
+    horizontalIndexMotor.getConfigurator().apply(config);
+    verticalIndexLeader.getConfigurator().apply(config);
+    verticalIndexFollower.getConfigurator().apply(config);
+
 
   }
 
@@ -32,7 +52,7 @@ public class IndexSubsystem extends SubsystemBase {
   }
 
   public void verticalSpeed(double velocity) {
-    verticalIndexMotor.setControl(new DutyCycleOut(velocity));
+    verticalIndexLeader.setControl(new DutyCycleOut(velocity));
   }
 
   public void stop() {

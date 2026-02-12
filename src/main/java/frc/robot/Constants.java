@@ -4,6 +4,8 @@
 
 package frc.robot;
 
+import com.ctre.phoenix6.signals.MotorAlignmentValue;
+
 /**
  * The Constants class provides a convenient place for teams to hold robot-wide numerical or boolean
  * constants. This class should not be used for any other purpose. All constants should be declared
@@ -29,12 +31,15 @@ public final class Constants {
   public static class IntakeConstants {
     public static final int intakeMotor1ID = 0;
     public static final String intakemotor1CANBus = "canivore1";
-
     public static final double INTAKE_SPEED = 0.3;
   }
+
   public static class ShooterConstants {
     public static final int shooterMotor1ID = 1;
     public static final String shootermotor1CANBus = "canivore";
+
+    public static final int shootermotor2ID = 7;
+    public static final String shootermotor2CANBus = "canivore";
 
     public static final double SHOOTER_SPEED = 0.5;
 
@@ -45,6 +50,8 @@ public final class Constants {
     public static final double kD = 0.0; // Derivative gain (volts per unit derivative)
 
     public static final double FEED_FORWARD = 0.05; // Additional feedforward voltage to help overcome static friction
+
+    public static final boolean INVERT_FOLLOWER = true;
   }
 
   public static class IntakeExtenderConstants{
@@ -87,8 +94,16 @@ public final class Constants {
     public static final int verticalIndexMotorID = 5;
     public static final String verticalIndexMotorCANBus = "canivore";
 
+    public static final int verticalIndexFollowerID = 6;
+    public static final String verticalIndexFollowerCANBus = "canivore";
+
+    public static final boolean INVERT_FOLLOWER = false;
+
     public static final double HORIZONTAL_INDEX_SPEED = 0.3;
     public static final double VERTICAL_INDEX_SPEED = 0.3;
+
+    public static final double INDEX_CURRENT_LIMIT = 30.0; // amps
+    public static final boolean INDEX_CURRENT_LIMIT_ENABLE = true;
    }
 
    public static class TurretConstants {
