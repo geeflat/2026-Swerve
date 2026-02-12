@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Map;
 
 public class ShuffleboardControl {
+
+    private final RobotContainer robotContainer;
     private static int nextColumn;
     private static final ShuffleboardTab tab = Shuffleboard.getTab("Motor Controls");
 
@@ -19,6 +21,10 @@ public class ShuffleboardControl {
     private static final List<MotorControlGroup> motorGroups = new ArrayList<>();
     private static GenericEntry emergencyStopEntry;
     private static final String EMERGENCY_KEY = "Emergency Stop All";
+
+    public ShuffleboardControl(RobotContainer robotContainer) {
+        this.robotContainer = robotContainer;
+    }
 
     // Called once from RobotContainer (e.g., in constructor or robotInit)
     public static void setupDashboard() {
@@ -41,6 +47,8 @@ public class ShuffleboardControl {
             .withWidget(BuiltInWidgets.kTextView)
             .withPosition(5, 0)
             .withSize(4, 1);
+        
+
     }
 
     /**
@@ -138,6 +146,7 @@ public class ShuffleboardControl {
                 group.update();
             }
         }
+
     }
 
     // ------------------------------------------------------------------------

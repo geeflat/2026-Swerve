@@ -63,9 +63,21 @@ public class IntakeSubsystem extends SubsystemBase {
           /* one-time action goes here */
         });
   }
+ 
+  public void setSpeed(double speed){
+    intakeMotor1.setControl(new DutyCycleOut(speed));
+  }
   
   public void intake(){
-    intakeMotor1.setControl(new DutyCycleOut(Constants.IntakeConstants.intakeSpeed));
+    setSpeed(Constants.IntakeConstants.INTAKE_SPEED);
+  }
+
+  public void stop(){
+    setSpeed(0.0);
+  }
+
+  public void reverseIntake(){
+    setSpeed(-Constants.IntakeConstants.INTAKE_SPEED);
   }
 
   /**
@@ -88,4 +100,5 @@ public class IntakeSubsystem extends SubsystemBase {
   public void simulationPeriodic() {
     // This method will be called once per scheduler run during simulation
   }
+
 }

@@ -52,7 +52,7 @@ public class IntakeExtender extends SubsystemBase {
     private double currentTargetTicks = 0.0; // for gravity compensation, monitor in periodic() to make sure extender isn't sagging
 
     // "Slew rate" limits jerk, improves smoothness of motion
-    // private final SlewRateLimiter outputLimiter = new SlewRateLimiter(Constants.IntakeExtenderConstants.SlewRateLimiter); // 3 units per second (optional)
+    // private final SlewRateLimiter outputLimiter = new SlewRateLimiter(Constants.IntakeExtenderConstants.SLEW_RATE_LIMITER); // 3 units per second (optional)
 
     // target setpoint for the extender position (start up)
     private double targetPositionDegrees = Constants.IntakeExtenderConstants.UP_POSITION_DEGREES;
@@ -91,6 +91,7 @@ public class IntakeExtender extends SubsystemBase {
         followerConfig.MotorOutput.Inverted = Constants.IntakeExtenderConstants.INVERT_FOLLOWER_MOTOR ? InvertedValue.Clockwise_Positive : InvertedValue.CounterClockwise_Positive;
         followerConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
         followerConfig.CurrentLimits = leaderConfig.CurrentLimits;
+
         followerMotor.setControl(new Follower(leaderMotor.getDeviceID(),MotorAlignmentValue.Opposed));
 
         followerMotor.getConfigurator().apply(followerConfig);
@@ -154,7 +155,7 @@ public class IntakeExtender extends SubsystemBase {
             System.out.println("Warning: Intake Extender encoder disagreement: " + diffDegrees + " degrees");
         }
 
-        double motorTicks = averagePos * Constants.IntakeExtenderConstants.IntakeGearRatio * Constants.IntakeExtenderConstants.EncoderTicksPerRevolution;
+        double motorTicks = averagePos * Constants.IntakeExtenderConstants.IntakeGearRatio * Constants.IntakeExtenderConstants.ENCODER_TICKS_PER_REVOLUTION;
 
         leaderMotor.setPosition(motorTicks);
     }
@@ -174,7 +175,7 @@ public class IntakeExtender extends SubsystemBase {
 
         targetPositionDegrees = positionDegrees;
 
-        double targetTicks = (positionDegrees / 360.0) * Constants.IntakeExtenderConstants.IntakeGearRatio * Constants.IntakeExtenderConstants.EncoderTicksPerRevolution;
+        double targetTicks = (positionDegrees / 360.0) * Constants.IntakeExtenderConstants.IntakeGearRatio * Constants.IntakeExtenderConstants.ENCODER_TICKS_PER_REVOLUTION;
         currentTargetTicks = targetTicks;
 
         // do the motion magic stuff.
@@ -197,7 +198,7 @@ public class IntakeExtender extends SubsystemBase {
 
     public double getPositionDegrees() {
         double motorTicks = leaderMotor.getPosition().getValueAsDouble();
-        return (motorTicks / (Constants.IntakeExtenderConstants.IntakeGearRatio * Constants.IntakeExtenderConstants.EncoderTicksPerRevolution)) * 360.0;
+        return (motorTicks / (Constants.IntakeExtenderConstants.IntakeGearRatio * Constants.IntakeExtenderConstants.ENCODER_TICKS_PER_REVOLUTION)) * 360.0;
     }
 
     // compute gravity feed forward value in volts
@@ -212,18 +213,19 @@ public class IntakeExtender extends SubsystemBase {
         rampActive = false;
         timer.reset();
         targetPositionDegrees = getPositionDegrees();
-        currentTargetTicks = (targetPositionDegrees/360.0) * Constants.IntakeExtenderConstants.IntakeGearRatio * Constants.IntakeExtenderConstants.EncoderTicksPerRevolution;
+        currentTargetTicks = (targetPositionDegrees/360.0) * Constants.IntakeExtenderConstants.IntakeGearRatio * Constants.IntakeExtenderConstants.ENCODER_TICKS_PER_REVOLUTION;
         System.out.println("Intake Extender stopped at "+targetPositionDegrees+" degrees");
     }
 
     void setPositionTicks(double motorTicks){
 
-        System.out.println("setPositionTicks is called with "+motorTicks);
+        // System.out.println("setPositionTicks is called with " + motorTicks);
 
         if (leaderMotor == null){
             System.out.println("leaderMotor is null!");
             return;
         }
+
         if (motionMagicRequest == null){
             System.out.println("motionMagicRequest is null!");
             return;

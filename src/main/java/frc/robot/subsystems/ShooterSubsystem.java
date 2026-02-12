@@ -6,7 +6,9 @@ package frc.robot.subsystems;
 import frc.robot.Constants;
 import frc.robot.ShuffleboardControl;
 
+import com.ctre.phoenix6.configs.Slot0Configs;
 import com.ctre.phoenix6.controls.DutyCycleOut;
+import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.hardware.TalonFX;
 
 import edu.wpi.first.wpilibj2.command.Command;
@@ -16,9 +18,20 @@ public class ShooterSubsystem extends SubsystemBase {
   /** Creates a new ShooterSubsystem. */
 private TalonFX shooterMotor1;
 
-  public ShooterSubsystem() {
+public ShooterSubsystem() {
+
     shooterMotor1 = new TalonFX(Constants.ShooterConstants.shooterMotor1ID, Constants.ShooterConstants.shootermotor1CANBus);
-        // register ShooterMotor1 as a continuous motor in Shuffleboard
+
+    var slot0Configs = new Slot0Configs();
+    slot0Configs.kS = Constants.ShooterConstants.kS;
+    slot0Configs.kV = Constants.ShooterConstants.kV;
+    slot0Configs.kP = Constants.ShooterConstants.kP;
+    slot0Configs.kI = Constants.ShooterConstants.kI;
+    slot0Configs.kD = Constants.ShooterConstants.kD;
+    
+    shooterMotor1.getConfigurator().apply(slot0Configs);
+    
+    // register ShooterMotor1 as a continuous motor in Shuffleboard
 
     ShuffleboardControl.registerContinuousMotor(
         "Shooter Motor",
@@ -60,7 +73,14 @@ private TalonFX shooterMotor1;
   }
 
   public void shoot(){
-    shooterMotor1.setControl(new com.ctre.phoenix6.controls.DutyCycleOut(Constants.ShooterConstants.shooterSpeed));
+
+    final VelocityVoltage request = new VelocityVoltage(0).withSlot(0);
+
+    shooterMotor1.setControl(request.withVelocity(Constants.ShooterConstants.SHOOTER_SPEED).withFeedForward(Constants.ShooterConstants.FEED_FORWARD));
+  }
+
+  public void stop(){
+    shooterMotor1.setControl(new DutyCycleOut(0.0));
   }
 
   /**
@@ -75,6 +95,7 @@ private TalonFX shooterMotor1;
 
   @Override
   public void periodic() {
+    shoot();
     // This method will be called once per scheduler run
   }
 

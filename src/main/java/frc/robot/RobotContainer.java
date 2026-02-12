@@ -12,11 +12,21 @@ import com.ctre.phoenix6.swerve.SwerveRequest;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.button.CommandJoystick;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 
-import frc.robot.commands.IntakeCommand;
+import frc.robot.commands.IntakeForwardCommand;
+import frc.robot.commands.IntakeStopCommand;
+import frc.robot.commands.ShooterContinuousCommand;
+import frc.robot.commands.ShooterStopCommand;
+import frc.robot.commands.IndexToShooterCommand;
+import frc.robot.commands.IntakeExtenderUp;
+import frc.robot.commands.IntakeExtenderDown;
+import frc.robot.commands.IndexReverseCommand;
+import frc.robot.commands.IndexStopCommand;
 
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
@@ -24,13 +34,23 @@ import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.IntakeSubsystem;
 import frc.robot.subsystems.ShooterSubsystem;
 import frc.robot.subsystems.IntakeExtender;
+import frc.robot.subsystems.IndexSubsystem;
 
+import edu.wpi.first.networktables.GenericEntry;
+import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
+import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
+
+// import frc.robot.Constants;
 
 public class RobotContainer {
 
-    IntakeSubsystem intake = new IntakeSubsystem();
-    ShooterSubsystem shooter = new ShooterSubsystem();
-    IntakeExtender intakeExtender = new IntakeExtender();
+    IntakeSubsystem intake;
+    ShooterSubsystem shooter;
+    IntakeExtender intakeExtender;
+    IndexSubsystem index;
+
+    private Constants.robotStates.State currentState;
 
     private double MaxSpeed = 1.0 * TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
     private double MaxAngularRate = RotationsPerSecond.of(0.75).in(RadiansPerSecond); // 3/4 of a rotation per second max angular velocity
@@ -46,18 +66,88 @@ public class RobotContainer {
 
     private final CommandXboxController joystick = new CommandXboxController(Constants.OperatorConstants.kDriverControllerPort);
 
+    private final CommandJoystick buttonBoard = new CommandJoystick(Constants.OperatorConstants.kButtonBoardPort);
+
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
 
+    private GenericEntry robotStateEntry;
+
+    private static final ShuffleboardTab robotStateTab = Shuffleboard.getTab("Robot State");
+
+    public Trigger fireOnMoveTrigger() {
+        return new Trigger(() -> currentState == Constants.robotStates.State.FIRE_ON_THE_MOVE);
+    }
+
+    public Trigger pushTrigger() {
+        return new Trigger(() -> currentState == Constants.robotStates.State.PUSH);
+    }
+
+    public Trigger climbTrigger() {
+        return new Trigger(() -> currentState == Constants.robotStates.State.CLIMB);
+    }
+
+    public Trigger idleTrigger() {
+        return new Trigger(() -> currentState == Constants.robotStates.State.IDLE);
+    }
+
+    public Trigger unJamActive = buttonBoard.button(Constants.OperatorConstants.UNJAM_BUTTON);
+
     public RobotContainer() {
+       
+        intake = new IntakeSubsystem();
+        shooter = new ShooterSubsystem();
+        intakeExtender = new IntakeExtender();
+        index = new IndexSubsystem();
+
         configureBindings();
+        configureDefaults();
         ShuffleboardControl.setupDashboard();
+
+        robotStateEntry = robotStateTab
+            .add("Robot State", "UNKNOWN")
+            .withWidget(BuiltInWidgets.kTextView)
+            .withPosition(0, 0)
+            .withSize(2, 1)
+            .getEntry();
+    }
+
+    private void configureDefaults() {
+        // Set the default robot state to IDLE
+        setRobotState(Constants.robotStates.State.IDLE);
+
+        intake.setDefaultCommand(
+            Commands.run(intake::stop, intake)
+        ); // default to stopped when not called
+
+        shooter.setDefaultCommand(
+            Commands.run(shooter::stop, shooter)
+        ); // default to stopped when not called
+
+        intakeExtender.setDefaultCommand(
+            Commands.run(intakeExtender::extenderUp, intakeExtender)
+        ); // default to stopped when not called
+
+        index.setDefaultCommand(
+            Commands.run(index::stop, index)
+        ); // default to up position when not called
+
     }
 
     private void configureBindings() {
         // Note that X is defined as forward according to WPILib convention,
         // and Y is defined as to the left according to WPILib convention.
+
         drivetrain.setDefaultCommand(
-            // Drivetrain will execute this command periodically
+        // Drivetrain will execute this command periodically
+            drivetrain.applyRequest(() ->
+                drive.withVelocityX(0) 
+                    .withVelocityY(0)
+                    .withRotationalRate(0)
+            )
+        );
+
+        idleTrigger().negate().whileTrue(
+        // Drivetrain will execute this command periodically
             drivetrain.applyRequest(() ->
                 drive.withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
                     .withVelocityY(-joystick.getLeftX() * MaxSpeed) // Drive left with negative X (left)
@@ -89,7 +179,64 @@ public class RobotContainer {
 
         drivetrain.registerTelemetry(logger::telemeterize);
 
-        joystick.x().whileTrue(new IntakeCommand(intake));
+        joystick.x().whileTrue(new IntakeForwardCommand(intake));
+
+        buttonBoard.button(Constants.OperatorConstants.FIRE_ON_THE_MOVE_BUTTON).onTrue(Commands.runOnce(() -> setRobotState(Constants.robotStates.State.FIRE_ON_THE_MOVE)));
+
+        buttonBoard.button(Constants.OperatorConstants.PUSH_BUTTON).onTrue(Commands.runOnce(() -> setRobotState(Constants.robotStates.State.PUSH)));
+
+        buttonBoard.button(Constants.OperatorConstants.CLIMB_BUTTON).onTrue(Commands.runOnce(() -> setRobotState(Constants.robotStates.State.CLIMB)));
+
+        buttonBoard.button(Constants.OperatorConstants.IDLE_BUTTON).onTrue(Commands.runOnce(() -> setRobotState(Constants.robotStates.State.IDLE)));
+
+        fireOnMoveTrigger().and(fireOnMoveTrigger().negate().debounce(0.05)).onTrue( // This trigger will activate when we first enter the FIRE_ON_THE_MOVE state, but not on subsequent scheduler runs while we're still in that state, due to the debounce.
+            new IntakeExtenderDown(intakeExtender)
+        );
+
+        fireOnMoveTrigger().and(fireOnMoveTrigger().negate().debounce(0.05)).onFalse( // This trigger will activate when we leave the FIRE_ON_THE_MOVE state, but not on subsequent scheduler runs while we're still outside that state, due to the debounce.
+            new IntakeExtenderUp(intakeExtender)
+        );
+
+        fireOnMoveTrigger().and(unJamActive.negate()).whileTrue(
+            Commands.parallel(
+                new ShooterContinuousCommand(shooter),
+                new IndexToShooterCommand(index),
+                new IntakeForwardCommand(intake)
+            )
+        );
+
+        unJamActive.whileTrue(
+            Commands.repeatingSequence(
+                new IndexReverseCommand(index).withTimeout(0.25),       // run index in reverse briefly to attempt to clear the jam
+                new IndexToShooterCommand(index).withTimeout(0.25), // run index forward briefly to attempt to clear the jam after reversing
+                Commands.waitSeconds(0.1)                          // wait 0.1 seconds between each cycle of unjamming to allow motors to respond and potentially clear the jam
+            ).withTimeout(4.0)                                      // command will stop after 4 seconds even if the button is still held, to prevent potential damage from prolonged unjamming
+        );
+
+        pushTrigger().whileTrue(
+            Commands.parallel(
+                new ShooterStopCommand(shooter),
+                new IndexStopCommand(index),
+                new IntakeStopCommand(intake)
+            )
+        );
+
+        idleTrigger().whileTrue(
+            Commands.parallel(
+                new ShooterStopCommand(shooter),
+                new IndexStopCommand(index),
+                new IntakeStopCommand(intake)
+            )
+        );
+
+        climbTrigger().whileTrue(
+            Commands.parallel(
+                new ShooterStopCommand(shooter),
+                new IndexStopCommand(index),
+                new IntakeStopCommand(intake)
+                // Climb motors will be activated by separate triggers/buttons, not in this trigger
+            )
+        );
     }
 
     public Command getAutonomousCommand() {
@@ -110,5 +257,20 @@ public class RobotContainer {
             drivetrain.applyRequest(() -> idle)
         );
         //I'm the bad guy!
+    }
+
+    private void setRobotState(Constants.robotStates.State newState) {
+        currentState = newState;
+        System.out.println("Robot state changed to: " + currentState);
+        robotStateEntry.setString(getRobotStateAsString());
+    }
+
+    public String getRobotStateAsString() {
+        return switch (currentState) {
+            case FIRE_ON_THE_MOVE -> "Fire on the Move";
+            case PUSH -> "Push";
+            case CLIMB -> "Climb";
+            case IDLE -> "Idle";
+        };
     }
 }
