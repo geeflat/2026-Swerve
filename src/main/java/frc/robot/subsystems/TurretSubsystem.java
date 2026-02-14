@@ -4,19 +4,106 @@
 
 package frc.robot.subsystems;
 import frc.robot.Constants;
+import frc.robot.ShuffleboardControl;
+
+import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
+import com.ctre.phoenix6.configs.Slot0Configs;
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.MotionMagicVoltage;
+import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.InvertedValue;
+import com.ctre.phoenix6.signals.NeutralModeValue;
+
+import edu.wpi.first.math.filter.SlewRateLimiter;
+import edu.wpi.first.networktables.GenericEntry;
+import edu.wpi.first.util.datalog.DoubleLogEntry;
+import edu.wpi.first.wpilibj.DutyCycleEncoder;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import com.ctre.phoenix6.controls.DutyCycleOut;
-import com.ctre.phoenix6.hardware.TalonFX;
-
+import com.ctre.phoenix6.controls.Follower;
+import com.ctre.phoenix6.signals.MotorAlignmentValue;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
+import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
+import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
+
 public class TurretSubsystem extends SubsystemBase {
+  
   public TalonFX turretMotor;
+
+  private final MotionMagicVoltage turretMotionMagicRequest = new MotionMagicVoltage(0);
+
+  private double currentTargetDegrees = 0;
+
   /** Creates a new TurretSubsystem. */
   public TurretSubsystem() {
     turretMotor = new TalonFX(Constants.TurretConstants.turretMotorID, Constants.TurretConstants.turretMotorCANBus);
+    
+    // register turretMotor as a position motor in Shuffleboard
+    ShuffleboardControl.registerPositionMotor("Turret Motor", turretMotor);
+
+    TalonFXConfiguration turretConfig = new TalonFXConfiguration();
+    turretConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+    turretConfig.CurrentLimits.SupplyCurrentLimit = Constants.TurretConstants.TURRET_CURRENT_LIMIT;
+    turretConfig.CurrentLimits.SupplyCurrentLimitEnable = true;
+
+    turretConfig.MotorOutput.Inverted = Constants.TurretConstants.INVERT_MOTOR ? InvertedValue.Clockwise_Positive : InvertedValue.CounterClockwise_Positive;
+
+    turretConfig.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
+    turretConfig.SoftwareLimitSwitch.ForwardSoftLimitThreshold = degreesToMotorRevolutions(Constants.TurretConstants.FORWARD_SOFT_LIMIT_DEGREES);
+    turretConfig.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
+    turretConfig.SoftwareLimitSwitch.ReverseSoftLimitThreshold = degreesToMotorRevolutions(Constants.TurretConstants.REVERSE_SOFT_LIMIT_DEGREES);
+
+    // PID Control (motion magic)
+
+    turretConfig.Slot0 = new Slot0Configs()
+        .withKP(Constants.TurretConstants.kP)
+        .withKI(Constants.TurretConstants.kI)
+        .withKD(Constants.TurretConstants.kD);
+      
+    turretConfig.MotionMagic.MotionMagicCruiseVelocity = Constants.TurretConstants.MOTION_CRUISE_VELOCITY / 360 * Constants.TurretConstants.GEAR_RATIO; // convert from degrees/s to ticks/s
+    turretConfig.MotionMagic.MotionMagicAcceleration = Constants.TurretConstants.MOTION_ACCELERATION / 360 * Constants.TurretConstants.GEAR_RATIO; // convert from degrees/s^2 to ticks/s^2
+
+    turretMotor.getConfigurator().apply(turretConfig);
+
+  }
+
+  public void setPosition(double positionDegrees) {
+    double positionRotaton = degreesToMotorRevolutions(positionDegrees);
+    turretMotionMagicRequest.Position = positionRotaton;
+    turretMotor.setControl(turretMotionMagicRequest);
+    currentTargetDegrees = positionDegrees;
+  }
+
+  public double degreesToMotorRevolutions(double degrees) {
+    double revolutionsPerDegree = (Constants.TurretConstants.GEAR_RATIO) / 360.0;
+    return degrees * revolutionsPerDegree;
+  }
+
+  public double revolutionsToDegrees(double revolutions) {
+    double degreesPerRevolution = 360.0 / (Constants.TurretConstants.GEAR_RATIO);
+    return revolutions * degreesPerRevolution;
+  }
+
+  public boolean atTargetPosition() {
+    double currentPositionRotation = turretMotor.getPosition().getValueAsDouble();
+    double targetPositionRotation = turretMotionMagicRequest.Position;
+    double toleranceRotation = degreesToMotorRevolutions(Constants.TurretConstants.POSITION_TOLERANCE_DEGREES);
+    return Math.abs(currentPositionRotation - targetPositionRotation) <= toleranceRotation;
+  }
+
+  public double getPositionDegrees() {
+    // Convert encoder rotations to degrees
+    return revolutionsToDegrees(turretMotor.getPosition().getValueAsDouble());
+  }
+
+  public double getTargetPositionDegrees() {
+    return currentTargetDegrees;
   }
 
   /**

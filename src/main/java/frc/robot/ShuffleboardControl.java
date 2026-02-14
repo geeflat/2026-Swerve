@@ -1,5 +1,8 @@
 package frc.robot;
 
+import com.ctre.phoenix6.configs.Slot0Configs;
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.hardware.TalonFX;
 import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj.shuffleboard.BuiltInLayouts;
 import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
@@ -13,251 +16,251 @@ import java.util.Map;
 
 public class ShuffleboardControl {
 
-    private final RobotContainer robotContainer;
-    private static int nextColumn;
-    private static final ShuffleboardTab tab = Shuffleboard.getTab("Motor Controls");
+    // === Separate tabs for clean layout ===
+    private static final ShuffleboardTab openLoopTab   = Shuffleboard.getTab("Open-Loop Motors");
+    private static final ShuffleboardTab velocityTab   = Shuffleboard.getTab("Velocity Motors");
+    private static final ShuffleboardTab positionTab   = Shuffleboard.getTab("Position Motors");
+    private static final ShuffleboardTab estopTab      = Shuffleboard.getTab("E-STOP");
 
-    // List of all registered motors for easy updating
-    private static final List<MotorControlGroup> motorGroups = new ArrayList<>();
     private static GenericEntry emergencyStopEntry;
-    private static final String EMERGENCY_KEY = "Emergency Stop All";
+    private static final List<MotorControlGroup> motorGroups = new ArrayList<>();
 
-    public ShuffleboardControl(RobotContainer robotContainer) {
-        this.robotContainer = robotContainer;
+    public enum MotorControlType {
+        OPEN_LOOP_POWER,
+        CLOSED_LOOP_VELOCITY,
+        POSITION_CONTROL
     }
 
-    // Called once from RobotContainer (e.g., in constructor or robotInit)
     public static void setupDashboard() {
-
-        nextColumn = 0;
-
-        emergencyStopEntry = Shuffleboard.getTab("Motor Controls")
-            .add(EMERGENCY_KEY, false)  // Starts as off/false
+        // Emergency stop on its own prominent tab
+        emergencyStopEntry = estopTab
+            .add("EMERGENCY STOP ALL", false)
             .withWidget(BuiltInWidgets.kToggleButton)
-            .withProperties(Map.of(
-                "true color", "#FF0000",      // Red when active
-                "false color", "#00FF00"      // Green when safe
-            ))
-            .withPosition(0, 0)       // Top-left corner
-            .withSize(4, 2)                   // Make it big and prominent
+            .withProperties(Map.of("true color", "#FF0000", "false color", "#00FF00"))
+            .withPosition(0, 0)
+            .withSize(4, 2)
             .getEntry();
 
-        Shuffleboard.getTab("Motor Controls")
-            .add("E-STOP WARNING", "PRESS TO KILL ALL MOTORS")
+        estopTab.add("WARNING", "PRESS TO KILL ALL MOTORS")
             .withWidget(BuiltInWidgets.kTextView)
             .withPosition(5, 0)
             .withSize(4, 1);
-        
-
     }
 
-    /**
-     * Register a motor that runs continuously (power % control).
-     */
-    public static void registerContinuousMotor(
-            String name,           // e.g. "Intake Roller"
-            int deviceId,          // CAN ID
-            String bus,            // "rio" or "canivore"
-            MotorAccessor motor    // Interface to get/set the motor
-    ) {
-        ShuffleboardLayout layout = createMotorLayout(name);
+    // ===================================================================
+    // Registration methods
+    // ===================================================================
 
-        GenericEntry powerSetpoint = layout.add("Power", 0.0)
-            .withWidget(BuiltInWidgets.kNumberSlider)
-            .withProperties(Map.of("min", -1.0, "max", 1.0, "block increment", 0.05))
-            .withSize(3, 5)
-            .withPosition(0 + (nextColumn * 4), 3)
-            .getEntry();
-
-        GenericEntry enabled = layout.add("Enabled", false)
-                .withWidget(BuiltInWidgets.kToggleButton)
-                .withSize(3, 5)
-                .withPosition(0 + (nextColumn * 4), 3)
-                .getEntry();
-
-        GenericEntry currentPower = layout.add("Current Power", 0.0)
-                .withWidget(BuiltInWidgets.kNumberBar)
-                .withProperties(Map.of("min", -1.0, "max", 1.0))
-                .withSize(3, 5)
-                .withPosition(0 + (nextColumn * 4), 3)
-                .getEntry();
-
-        motorGroups.add(new MotorControlGroup(
-                motor, powerSetpoint, enabled, currentPower, null, null, null, true));
-
-        nextColumn++;
+    public static void registerOpenLoopMotor(String name, TalonFX motor) {
+        var layout = createMotorLayout(openLoopTab, name);
+        addOpenLoopControls(layout, motor);
     }
 
-    /**
-     * Register a motor that runs to position (e.g. arm, elevator, shooter hood).
-     */
-    public static void registerPositionMotor(
-            String name,
-            int deviceId,
-            String bus,
-            MotorAccessor motor
-    ) {
-        ShuffleboardLayout layout = createMotorLayout(name);
-
-        GenericEntry positionSetpoint = layout.add("Position Degrees", 0.0)
-                .withWidget(BuiltInWidgets.kNumberSlider)
-                .withProperties(Map.of("min", 0, "max", 90, "block increment", 5))
-                .withSize(3, 5)
-                .withPosition(0 + (nextColumn * 3), 0)
-                .getEntry();
-
-        GenericEntry goButton = layout.add("Go to Position", false)
-                .withWidget(BuiltInWidgets.kToggleButton)  // or use a command button if preferred
-                .withSize(3, 5)
-                .withPosition(0  + (nextColumn * 3),0)
-                .getEntry();
-
-        GenericEntry currentPosition = layout.add("Current Position", 0.0)
-                .withWidget(BuiltInWidgets.kDial)
-                .withSize(3, 5)
-                .withPosition(0 + (nextColumn * 3), 0)
-                .getEntry();
-
-        motorGroups.add(new MotorControlGroup(
-                motor, null, null, null, positionSetpoint, goButton, currentPosition, false));
-
-        nextColumn++;
+    public static void registerVelocityMotor(String name, TalonFX motor) {
+        var layout = createMotorLayout(velocityTab, name);
+        addVelocityControls(layout, motor);
     }
 
-    private static ShuffleboardLayout createMotorLayout(String name) {
+    public static void registerPositionMotor(String name, TalonFX motor) {
+        var layout = createMotorLayout(positionTab, name);
+        addPositionControls(layout, motor);
+    }
+
+    // ===================================================================
+    // Internal helpers
+    // ===================================================================
+
+    private static ShuffleboardLayout createMotorLayout(ShuffleboardTab tab, String name) {
         return tab.getLayout(name, BuiltInLayouts.kList)
-                .withSize(3, 5)
-                .withPosition(motorGroups.size() * 3, 2)  // Auto-place horizontally; adjust as needed
+                .withSize(3, 8)
                 .withProperties(Map.of("Label position", "TOP"));
     }
 
-    /**
-     * Call this from RobotContainer.teleopPeriodic() or a dedicated command.
-     */
+    private static void addOpenLoopControls(ShuffleboardLayout layout, TalonFX motor) {
+        GenericEntry power = layout.add("Power %", 0.0)
+                .withWidget(BuiltInWidgets.kNumberSlider)
+                .withProperties(Map.of("min", -1.0, "max", 1.0))
+                .getEntry();
+
+        GenericEntry enabled = layout.add("Enabled", false)
+                .withWidget(BuiltInWidgets.kToggleButton)
+                .getEntry();
+
+        GenericEntry current = layout.add("Current Power", 0.0)
+                .withWidget(BuiltInWidgets.kNumberBar)
+                .getEntry();
+
+        motorGroups.add(new MotorControlGroup(motor, MotorControlType.OPEN_LOOP_POWER,
+                enabled, power, current, null, null, null, null, null));
+    }
+
+    private static void addVelocityControls(ShuffleboardLayout layout, TalonFX motor) {
+        GenericEntry rpm = layout.add("RPM Setpoint", 0.0)
+                .withWidget(BuiltInWidgets.kNumberSlider)
+                .withProperties(Map.of("min", 0, "max", 6000, "block increment", 100))
+                .getEntry();
+
+        GenericEntry enabled = layout.add("Enabled", false)
+                .withWidget(BuiltInWidgets.kToggleButton)
+                .getEntry();
+
+        GenericEntry currentRpm = layout.add("Current RPM", 0.0)
+                .withWidget(BuiltInWidgets.kNumberBar)
+                .getEntry();
+
+        // PID fields
+        GenericEntry kp = layout.add("kP", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
+        GenericEntry ki = layout.add("kI", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
+        GenericEntry kd = layout.add("kD", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
+        GenericEntry apply = layout.add("Apply PID", false)
+                .withWidget(BuiltInWidgets.kToggleButton)
+                .withProperties(Map.of("true color", "#00FF00", "false color", "#808080"))
+                .getEntry();
+
+        motorGroups.add(new MotorControlGroup(motor, MotorControlType.CLOSED_LOOP_VELOCITY,
+                enabled, rpm, currentRpm, null, kp, ki, kd, apply));
+    }
+
+    private static void addPositionControls(ShuffleboardLayout layout, TalonFX motor) {
+        GenericEntry pos = layout.add("Position (deg)", 0.0)
+                .withWidget(BuiltInWidgets.kNumberSlider)
+                .withProperties(Map.of("min", Constants.HoodConstants.LOWER_LIMIT, "max", Constants.HoodConstants.UPPER_LIMIT))
+                .getEntry();
+
+        GenericEntry go = layout.add("Go to Pos", false)
+                .withWidget(BuiltInWidgets.kToggleButton)
+                .getEntry();
+
+        GenericEntry currentPos = layout.add("Current Pos", 0.0)
+                .withWidget(BuiltInWidgets.kDial)
+                .getEntry();
+
+        // PID fields
+        GenericEntry kp = layout.add("kP", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
+        GenericEntry ki = layout.add("kI", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
+        GenericEntry kd = layout.add("kD", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
+        GenericEntry apply = layout.add("Apply PID", false)
+                .withWidget(BuiltInWidgets.kToggleButton)
+                .withProperties(Map.of("true color", "#00FF00", "false color", "#808080"))
+                .getEntry();
+
+        motorGroups.add(new MotorControlGroup(motor, MotorControlType.POSITION_CONTROL,
+                null, pos, currentPos, go, kp, ki, kd, apply));
+    }
+
     public static void update() {
-        boolean eStopActive = emergencyStopEntry.getBoolean(false);
+        boolean eStop = emergencyStopEntry.getBoolean(false);
 
-        if (eStopActive) { // Force all motors to safe state (0 power, disabled)
-            for (MotorControlGroup group : motorGroups) {
-                group.emergencyStop();  // We'll add this method below
-            }
-        } else { // Normal operation
-            for (MotorControlGroup group : motorGroups) {
-                group.update();
-            }
+        if (eStop) {
+            motorGroups.forEach(MotorControlGroup::emergencyStop);
+            return;
         }
 
+        motorGroups.forEach(MotorControlGroup::update);
     }
 
-    // ------------------------------------------------------------------------
-    // Internal class to hold one motor's controls and logic
+    // ===================================================================
+    // Motor Control Group
+    // ===================================================================
     private static class MotorControlGroup {
-        private final MotorAccessor motor;
-        private final GenericEntry powerSetpoint;
+        private final TalonFX motor;
+        private final MotorControlType type;
+
         private final GenericEntry enabled;
-        private final GenericEntry currentPower;
-        private final GenericEntry positionSetpoint;
+        private final GenericEntry setpoint;
+        private final GenericEntry currentValue;
         private final GenericEntry goButton;
-        private final GenericEntry currentPosition;
-        private final boolean isContinuous;
-        private double lastAppliedPower = 0.0;
-        private double lastAppliedPosition = 0.0;
-        private double lastSetpoint = 0.0;
+        private final GenericEntry kpEntry;
+        private final GenericEntry kiEntry;
+        private final GenericEntry kdEntry;
+        private final GenericEntry applyPidButton;
 
-        MotorControlGroup(MotorAccessor motor,
-                          GenericEntry powerSetpoint, GenericEntry enabled, GenericEntry currentPower,
-                          GenericEntry positionSetpoint, GenericEntry goButton, GenericEntry currentPosition,
-                          boolean isContinuous) {
+        private boolean lastApplyState = false;
+
+        MotorControlGroup(TalonFX motor, MotorControlType type,
+                          GenericEntry enabled, GenericEntry setpoint, GenericEntry currentValue,
+                          GenericEntry goButton,
+                          GenericEntry kp, GenericEntry ki, GenericEntry kd, GenericEntry apply) {
             this.motor = motor;
-            this.powerSetpoint = powerSetpoint;
+            this.type = type;
             this.enabled = enabled;
-            this.currentPower = currentPower;
-            this.positionSetpoint = positionSetpoint;
+            this.setpoint = setpoint;
+            this.currentValue = currentValue;
             this.goButton = goButton;
-            this.currentPosition = currentPosition;
-            this.isContinuous = isContinuous;
-            this.lastAppliedPower = 0.0;
-            this.lastAppliedPosition = 0.0;
+            this.kpEntry = kp;
+            this.kiEntry = ki;
+            this.kdEntry = kd;
+            this.applyPidButton = apply;
         }
+
         void emergencyStop() {
-            motor.setPower(0.0);  // Or motor.set(0.0) if using unified set()
-            // If position mode, perhaps call motor.stop() or set to current pos
-            if (currentPower != null) {
-                currentPower.setDouble(0.0);
-            }
-            if (enabled != null) {
-                enabled.setBoolean(false);  // Disable individual toggle too
-            }
+            motor.set(0.0);
+            if (currentValue != null) currentValue.setDouble(0.0);
+            if (enabled != null) enabled.setBoolean(false);
+            if (goButton != null) goButton.setBoolean(false);
+            if (applyPidButton != null) applyPidButton.setBoolean(false);
         }
+
         void update() {
-            if (isContinuous) {
-                boolean isEnabled = enabled.getBoolean(false);
-                double power = isEnabled ? powerSetpoint.getDouble(0.0) : 0.0;
-                motor.setPower(power);
-                currentPower.setDouble(power);  // Or better: motor.getPower() if your accessor provides it
-            } else {
-                if (goButton.getBoolean(false)) {
-                    double target = positionSetpoint.getDouble(0.0);
-                    motor.setPosition(target);
-                    goButton.setBoolean(false);  // Reset button after triggering
+            boolean isEnabled = enabled != null && enabled.getBoolean(false);
+
+            if (!isEnabled) {
+                motor.set(0.0);
+                if (currentValue != null) currentValue.setDouble(0.0);
+                return;
+            }
+
+            // Normal motor control
+            switch (type) {
+                case OPEN_LOOP_POWER:
+                    double power = setpoint.getDouble(0.0);
+                    motor.set(power);
+                    if (currentValue != null) currentValue.setDouble(power);
+                    break;
+
+                case CLOSED_LOOP_VELOCITY:
+                    double rpm = setpoint.getDouble(0.0);
+                    // TODO: Replace with your actual velocity command
+                    // motor.setControl(new VelocityVoltage(Units.rotationsPerMinuteToRotationsPerSecond(rpm)));
+                    break;
+
+                case POSITION_CONTROL:
+                    if (goButton != null && goButton.getBoolean(false)) {
+                        double target = setpoint.getDouble(0.0);
+                        // TODO: Replace with your position command
+                        // motor.setPositionDegrees(target);
+                        goButton.setBoolean(false);
+                    }
+                    break;
+            }
+
+            // PID Apply - rising edge detection (works even when disabled)
+            if (applyPidButton != null) {
+                boolean currentApply = applyPidButton.getBoolean(false);
+
+                if (currentApply && !lastApplyState) {
+                    double kp = kpEntry.getDouble(0.0);
+                    double ki = kiEntry.getDouble(0.0);
+                    double kd = kdEntry.getDouble(0.0);
+
+                    Slot0Configs slot0 = new Slot0Configs()
+                        .withKP(kp)
+                        .withKI(ki)
+                        .withKD(kd);
+
+                    TalonFXConfiguration config = new TalonFXConfiguration();
+                    config.Slot0 = slot0;
+
+                    motor.getConfigurator().apply(config);
+
+                    System.out.println("Applied PID to motor " + motor.getDeviceID() +
+                                       ": kP=" + kp + ", kI=" + ki + ", kD=" + kd);
+
+                    applyPidButton.setBoolean(false);
                 }
-                currentPosition.setDouble(motor.getPosition());  // Now this will resolve
+
+                lastApplyState = currentApply;
             }
         }
-        // void update() {
-        //     if (isContinuous) {
-        //         boolean currentlyEnabled = enabled.getBoolean(false);
-        //         double currentSetpoint = powerSetpoint.getDouble(0.0);
-
-        //         if (currentlyEnabled) {
-        //         // Detect if setpoint changed since last update (approx while enabled)
-        //         if (Math.abs(currentSetpoint - lastSetpoint) > 0.001) {  // Use epsilon for floating point
-        //         // Change detected while enabled → auto-stop and disable
-        //             motor.setPower(0.0);
-        //             currentPower.setDouble(0.0);
-        //             enabled.setBoolean(false);
-        //             lastAppliedPower = 0.0;  // Reset applied tracking
-        //         } else {
-        //         // No change → apply and track
-        //             motor.setPower(currentSetpoint);
-        //             currentPower.setDouble(motor.getPower());  // Or currentSetpoint if no get
-        //             lastAppliedPower = currentSetpoint;
-        //         }
-        //         } else {
-        //             motor.setPower(0.0);
-        //             currentPower.setDouble(0.0);
-        //             // Do not reset lastApplied when disabled — allows re-enable to new value if changed while off
-        //         }
-        //     lastSetpoint = currentSetpoint;  // Always update for next cycle
-        //     } else {
-        // // Position mode (similar logic)
-        //     boolean goPressed = goButton.getBoolean(false);
-        //     double currentSetpoint = positionSetpoint.getDouble(0.0);
-        //         if (goPressed) {
-
-        //             if (Math.abs(currentSetpoint - lastSetpoint) > 0.001) {
-        //                 // Change while "go" active → cancel
-        //                 goButton.setBoolean(false);
-        //                 // Optional: motor.stop();
-        //             } else {
-        //                 motor.setPosition(currentSetpoint);
-        //                 goButton.setBoolean(false);  // Reset after apply
-        //                 lastAppliedPosition = currentSetpoint;
-        //             }
-        //         }
-        //         currentPosition.setDouble(motor.getPosition());
-
-        //         lastSetpoint = currentSetpoint;
-        //     }
-        // }   
-    }
-
-    // ------------------------------------------------------------------------
-    // Interface that subsystems implement or provide for their motors
-    public interface MotorAccessor {
-        void setPower(double power);
-        double getPower();
-        void setPosition(double position);
-        double getPosition();
     }
 }

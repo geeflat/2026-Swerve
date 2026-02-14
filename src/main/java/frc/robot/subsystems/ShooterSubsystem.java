@@ -40,31 +40,7 @@ public ShooterSubsystem() {
         : MotorAlignmentValue.Aligned));
 
     // register ShooterMotor1 as a continuous motor in Shuffleboard
-
-    ShuffleboardControl.registerContinuousMotor(
-        "Shooter Motor",
-        Constants.ShooterConstants.shooterMotor1ID,
-        Constants.ShooterConstants.shootermotor1CANBus,
-        new ShuffleboardControl.MotorAccessor() {
-          private final DutyCycleOut request = new DutyCycleOut(0.0);
-
-          @Override
-          public void setPower(double power) {
-              // -1.0 to 1.0 → DutyCycleOut uses -1 to 1 directly
-              request.Output = power;
-              shooterMotor1.setControl(request);
-          }
-
-          @Override
-          public double getPower() {
-              // Best: get the applied duty cycle (what the motor is actually outputting)
-              return shooterMotor1.getDutyCycle().getValueAsDouble();
-          }
-
-          @Override public void setPosition(double pos) { /* not used */ }
-          @Override public double getPosition() { return 0; }
-        }
-      );
+    ShuffleboardControl.registerVelocityMotor("Shooter Motor", shooterMotor1);
   }
 
   /**

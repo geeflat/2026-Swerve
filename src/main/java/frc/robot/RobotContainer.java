@@ -50,7 +50,7 @@ public class RobotContainer {
     IntakeExtender intakeExtender;
     IndexSubsystem index;
 
-    private Constants.robotStates.State currentState;
+    private Constants.robotStates.State currentState = Constants.robotStates.State.IDLE;
     private FieldConstants.FieldRegion currentRegion;
     public FieldConstants.FieldRegion getFieldLocation() { return currentRegion; }
 
@@ -92,10 +92,25 @@ public class RobotContainer {
         return new Trigger(() -> currentState == Constants.robotStates.State.IDLE);
     }
 
+    public Trigger stopAndShootTrigger() {
+        return new Trigger(() -> currentState == Constants.robotStates.State.STOP_AND_SHOOT);
+    }
+
+    public Trigger isShootingTrigger() {
+        return fireOnMoveTrigger().or(stopAndShootTrigger());
+    }
+
     public Trigger unJamActive = buttonBoard.button(Constants.OperatorConstants.UNJAM_BUTTON);
 
+    public Trigger fireButton() {
+        return buttonBoard.button(Constants.OperatorConstants.FIRE_BUTTON);
+    }
+
     public RobotContainer() {
-       
+    try {
+
+
+
         intake = new IntakeSubsystem();
         shooter = new ShooterSubsystem();
         intakeExtender = new IntakeExtender();
@@ -111,11 +126,19 @@ public class RobotContainer {
             .withPosition(0, 0)
             .withSize(2, 1)
             .getEntry();
+
+        setRobotState(Constants.robotStates.State.IDLE);
+    
+
+
+    } catch (Exception e) { 
+        System.err.println("RobotContainer constructor failed!");
+        e.printStackTrace();
+        throw e;
+    }
     }
 
     private void configureDefaults() {
-        // Set the default robot state to IDLE
-        setRobotState(Constants.robotStates.State.IDLE);
 
         intake.setDefaultCommand(
             Commands.run(intake::stop, intake)
@@ -184,21 +207,20 @@ public class RobotContainer {
         joystick.x().whileTrue(new IntakeForwardCommand(intake));
 
         buttonBoard.button(Constants.OperatorConstants.FIRE_ON_THE_MOVE_BUTTON).onTrue(Commands.runOnce(() -> setRobotState(Constants.robotStates.State.FIRE_ON_THE_MOVE)));
-
         buttonBoard.button(Constants.OperatorConstants.PUSH_BUTTON).onTrue(Commands.runOnce(() -> setRobotState(Constants.robotStates.State.PUSH)));
-
         buttonBoard.button(Constants.OperatorConstants.CLIMB_BUTTON).onTrue(Commands.runOnce(() -> setRobotState(Constants.robotStates.State.CLIMB)));
-
         buttonBoard.button(Constants.OperatorConstants.IDLE_BUTTON).onTrue(Commands.runOnce(() -> setRobotState(Constants.robotStates.State.IDLE)));
+        buttonBoard.button(Constants.OperatorConstants.STOP_AND_SHOOT_BUTTON).onTrue(Commands.runOnce(() -> setRobotState(Constants.robotStates.State.STOP_AND_SHOOT)));
 
-        fireOnMoveTrigger().and(fireOnMoveTrigger().negate().debounce(0.05)).onTrue( // This trigger will activate when we first enter the FIRE_ON_THE_MOVE state, but not on subsequent scheduler runs while we're still in that state, due to the debounce.
+        isShootingTrigger().and(isShootingTrigger().negate().debounce(0.05)).onTrue( // This trigger will activate when we first enter the FIRE_ON_THE_MOVE state, but not on subsequent scheduler runs while we're still in that state, due to the debounce.
             new IntakeExtenderDown(intakeExtender)
         );
 
-        fireOnMoveTrigger().and(fireOnMoveTrigger().negate().debounce(0.05)).onFalse( // This trigger will activate when we leave the FIRE_ON_THE_MOVE state, but not on subsequent scheduler runs while we're still outside that state, due to the debounce.
+        isShootingTrigger().and(isShootingTrigger().negate().debounce(0.05)).onFalse( // This trigger will activate when we leave the FIRE_ON_THE_MOVE state, but not on subsequent scheduler runs while we're still outside that state, due to the debounce.
             new IntakeExtenderUp(intakeExtender)
         );
 
+        // for fire on the  move, turn on intake, index, and shooter (unless we're unjamming)
         fireOnMoveTrigger().and(unJamActive.negate()).whileTrue(
             Commands.parallel(
                 new ShooterContinuousCommand(shooter),
@@ -207,7 +229,32 @@ public class RobotContainer {
             )
         );
 
-        unJamActive.whileTrue(
+        // for stop and shoot, if we're not unjamming or shooting, turn on the intake, turn off shooter & index.
+        stopAndShootTrigger()
+            .and(unJamActive.negate())
+            .and(fireButton().negate())
+            .whileTrue(
+            Commands.parallel(
+                new ShooterContinuousCommand(shooter),
+                new IndexStopCommand(index),
+                new IntakeForwardCommand(intake)
+            )
+        );
+
+        // for stop and shoot, if the fire button is being held, turn everything on
+        stopAndShootTrigger()
+            .and(fireButton())
+            .and(unJamActive.negate())
+            .whileTrue(
+            Commands.parallel(
+                new ShooterContinuousCommand(shooter),
+                new IndexToShooterCommand(index),
+                new IntakeForwardCommand(intake)
+            )
+        );
+
+        // can't unjam while fire button is being pressed
+        unJamActive.and(fireButton().negate()).whileTrue(
             Commands.repeatingSequence(
                 new IndexReverseCommand(index).withTimeout(0.25),       // run index in reverse briefly to attempt to clear the jam
                 new IndexToShooterCommand(index).withTimeout(0.25), // run index forward briefly to attempt to clear the jam after reversing
@@ -264,6 +311,14 @@ public class RobotContainer {
     private void setRobotState(Constants.robotStates.State newState) {
         currentState = newState;
         System.out.println("Robot state changed to: " + currentState);
+
+        if (robotStateEntry != null){
+            robotStateEntry.setString(getRobotStateAsString());
+        }
+        else {
+            System.out.println("Warning: robotStateEntry is null - Shuffleboard not Initialized yet");
+        }
+
         robotStateEntry.setString(getRobotStateAsString());
     }
 
@@ -273,6 +328,8 @@ public class RobotContainer {
             case PUSH -> "Push";
             case CLIMB -> "Climb";
             case IDLE -> "Idle";
+            case STOP_AND_SHOOT -> "Stop and Shoot";
+            default -> "none";
         };
     }
 }

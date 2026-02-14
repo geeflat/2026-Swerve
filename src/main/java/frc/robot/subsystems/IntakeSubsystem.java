@@ -12,7 +12,6 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import frc.robot.ShuffleboardControl;
-import frc.robot.ShuffleboardControl.MotorAccessor;
 
 public class IntakeSubsystem extends SubsystemBase {
   /** Creates a new ExampleSubsystem. */
@@ -23,30 +22,7 @@ public class IntakeSubsystem extends SubsystemBase {
     intakeMotor1 = new TalonFX(Constants.IntakeConstants.intakeMotor1ID, Constants.IntakeConstants.intakemotor1CANBus);
 
     // register IntakeMotor1 as a continuous motor in Shuffleboard
-
-    ShuffleboardControl.registerContinuousMotor(
-        "Intake Motor",
-        Constants.IntakeConstants.intakeMotor1ID,
-        Constants.IntakeConstants.intakemotor1CANBus,
-        new ShuffleboardControl.MotorAccessor() {
-          private final DutyCycleOut request = new DutyCycleOut(0.0);
-
-          @Override
-          public void setPower(double power) {
-              // -1.0 to 1.0 → DutyCycleOut uses -1 to 1 directly
-              request.Output = power;
-              intakeMotor1.setControl(request);
-          }
-
-          @Override
-          public double getPower() {
-              // Best: get the applied duty cycle (what the motor is actually outputting)
-              return intakeMotor1.getDutyCycle().getValueAsDouble();
-          }
-          @Override public void setPosition(double pos) { /* not used */ }
-          @Override public double getPosition() { return 0; }
-        }
-      );
+    ShuffleboardControl.registerOpenLoopMotor("Intake Motor", intakeMotor1);
 
   }
 

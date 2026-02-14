@@ -5,7 +5,6 @@
 package frc.robot.subsystems;
 import frc.robot.Constants;
 import frc.robot.ShuffleboardControl;
-import frc.robot.Constants.IntakeExtenderConstants;
 
 import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
 import com.ctre.phoenix6.configs.Slot0Configs;
@@ -26,18 +25,12 @@ import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.signals.MotorAlignmentValue;
 
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
-import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
-import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 
 
 public class IntakeExtender extends SubsystemBase {
 
-    private GenericEntry rampTestActiveEntry;
-    
     // motors for intake extender
     private final TalonFX leaderMotor;      // left
     private final TalonFX followerMotor;    // right
@@ -57,12 +50,6 @@ public class IntakeExtender extends SubsystemBase {
     // target setpoint for the extender position (start up)
     private double targetPositionDegrees = Constants.IntakeExtenderConstants.UP_POSITION_DEGREES;
 
-    // timer for testing
-    private final Timer timer = new Timer();
-    private double rampStartDegrees = 0.0;
-    private boolean rampActive = false;
-    private double rampSpeedDegreesPerSec = 3.0; // degrees per second
-  
     public IntakeExtender() {
         // initialize motors
         leaderMotor = new TalonFX(Constants.IntakeExtenderConstants.leaderExtenderID, Constants.IntakeExtenderConstants.leaderExtenderCANBus);
@@ -106,42 +93,8 @@ public class IntakeExtender extends SubsystemBase {
         // initialize position from encoders
         resetPositionFromEncoders();
 
-        // initialize & start timer
-        timer.reset();
-        timer.start();
-
-        ShuffleboardTab tab = Shuffleboard.getTab("IntakeExtender");
-        rampTestActiveEntry = tab.add("Ramp Test Active", false)
-            .withWidget(BuiltInWidgets.kToggleButton)
-            .getEntry();
-
         // register leader with shuffleboard (follower should be same-ish)
-        ShuffleboardControl.registerPositionMotor(
-            "Intake Extender Leader",
-            Constants.IntakeExtenderConstants.leaderExtenderID,
-            Constants.IntakeExtenderConstants.leaderExtenderCANBus,
-            new ShuffleboardControl.MotorAccessor() {
-                @Override
-                    public void setPower(double power) {
-                        stop();;
-                    }
-    
-                    @Override
-                    public double getPower() {
-                        return getPower();
-                    }
-    
-                    @Override
-                    public void setPosition(double pos) {
-                        setPosition(pos);
-                    }
-    
-                    @Override
-                    public double getPosition() {
-                        return getPositionDegrees();
-                    }
-            }
-        );
+        ShuffleboardControl.registerPositionMotor("Intake Extender Leader", leaderMotor);
     }
 
     public void resetPositionFromEncoders(){
@@ -210,8 +163,6 @@ public class IntakeExtender extends SubsystemBase {
 
     public void stop() {
         leaderMotor.stopMotor();
-        rampActive = false;
-        timer.reset();
         targetPositionDegrees = getPositionDegrees();
         currentTargetTicks = (targetPositionDegrees/360.0) * Constants.IntakeExtenderConstants.IntakeGearRatio * Constants.IntakeExtenderConstants.ENCODER_TICKS_PER_REVOLUTION;
         System.out.println("Intake Extender stopped at "+targetPositionDegrees+" degrees");
@@ -248,17 +199,6 @@ public class IntakeExtender extends SubsystemBase {
         return leaderMotor.getDutyCycle().getValueAsDouble();
     }
 
-    public void startRampTest(){
-        rampStartDegrees = getPositionDegrees();
-        rampActive = true;
-        System.out.println("Starting ramp test from "+rampStartDegrees+" degrees");
-    }
-
-    public void stopRampTest(){
-        rampActive = false;
-        System.out.println("Stopping ramp test at " + getPositionDegrees() + " degrees");
-    }
-
     /**
      * Example command factory method.
      *
@@ -293,32 +233,6 @@ public class IntakeExtender extends SubsystemBase {
             motionMagicRequest.Position = currentTargetTicks;
             leaderMotor.setControl(motionMagicRequest);
         }
-
-    boolean wantRamp = rampTestActiveEntry.getBoolean(false);
-
-    if(wantRamp && !rampActive) {
-      startRampTest();
-    } else if(!wantRamp && rampActive) {
-      stopRampTest();
-    }
-    if (rampActive){
-        double elapsedTime = timer.get();
-        double newPositionDegrees = rampStartDegrees + (rampSpeedDegreesPerSec * elapsedTime);
-        if(newPositionDegrees > 90.0) {
-            newPositionDegrees = 90.0;
-            rampActive = false;
-            rampTestActiveEntry.setBoolean(false);
-            System.out.println("Ramp test reached max position, stopping at "+newPositionDegrees+" degrees");
-        }
-
-        System.out.println("Ramp test: moving to "+newPositionDegrees+" degrees");
-        setPosition(newPositionDegrees);
-        if (Math.floor(elapsedTime * 2)!= Math.floor((elapsedTime - 0.02) * 2))
-        {
-            System.out.println("  Current position: "+getPositionDegrees()+" degrees");
-        }
-    }
-
     }
 
     @Override

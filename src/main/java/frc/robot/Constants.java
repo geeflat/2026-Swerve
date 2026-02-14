@@ -4,6 +4,8 @@
 
 package frc.robot;
 
+import edu.wpi.first.math.util.Units;
+
 
 /**
  * The Constants class provides a convenient place for teams to hold robot-wide numerical or boolean
@@ -25,6 +27,9 @@ public final class Constants {
     public static final int CLIMB_BUTTON = 3;
     public static final int IDLE_BUTTON = 4;
     public static final int UNJAM_BUTTON = 5;
+    public static final int STOP_AND_SHOOT_BUTTON = 6;
+
+    public static final int FIRE_BUTTON = 11;
   }
 
   public static class IntakeConstants {
@@ -106,54 +111,86 @@ public final class Constants {
    }
 
    public static class TurretConstants {
-      public static final int turretMotorID = 6;
+      public static final int turretMotorID = 7;
       public static final String turretMotorCANBus = "canivore";
 
-      public static final double kP = 0.1;
+      public static final double kP = 0.8;
       public static final double kI = 0.0; 
-      public static final double kD = 0.0;
-      public static final double kV = 0.0;
-      public static final double kG = 0.0;
+      public static final double kD = 12.0;
 
-      public static final double MOTION_CRUISE_VELOCITY = 600;
-      public static final double MOTION_ACCELERATION = 1200;
+      public static final double MOTION_CRUISE_VELOCITY = 200;
+      public static final double MOTION_ACCELERATION = 800;
 
       public static final double ENCODER_TICKS_PER_REVOLUTION = 2048;
       public static final double SLEW_RATE_LIMITER = 3.0; // units per second
 
       public static final double MOTOR_TOOTH_COUNT = 22.0;
       public static final double TURRET_TOOTH_COUNT = 120.0;
+
+      public static final double GEAR_RATIO = TURRET_TOOTH_COUNT / MOTOR_TOOTH_COUNT;
+
+      public static final double TURRET_CURRENT_LIMIT = 30.0; // amps
+
+      public static final double POSITION_TOLERANCE_DEGREES = 2; // doesn't need to be perfectly accurate, we have a +-3' window
+
+      public static final double FORWARD_SOFT_LIMIT_DEGREES =  180; // forward limit of turret rotation in degrees
+      public static final double REVERSE_SOFT_LIMIT_DEGREES = -180; // reverse limit of turret rotation in degrees
+
+      public static final boolean INVERT_MOTOR = false;
    }
 
    public static class HoodConstants {
-      public static final int hoodMotorID = 7;
+      public static final int hoodMotorID = 8;
       public static final String hoodMotorCANBus = "canivore";
 
-      public static final double kP = 0.1;
+      public static final double kP = 0.8;
       public static final double kI = 0.0;
-      public static final double kD = 0.0;
+      public static final double kD = 12.0;
       public static final double kV = 0.0;
-      public static final double kG = 0.0;
+      public static final double kG = 0.04; // gravity feedforward gain, needs to be tuned based on weight of hood and friction in system
 
-      public static final double MOTION_CRUISE_VELOCITY = 600;
-      public static final double MOTION_ACCELERATION = 1200;
+      public static final double MOTION_CRUISE_VELOCITY = 80;
+      public static final double MOTION_ACCELERATION = 400;
 
       public static final double UPPER_LIMIT = 90;
-      public static final double LOWER_LIMIT = 40;
+      public static final double LOWER_LIMIT = 20;
+
+      public static final double GEAR_RATIO = 25.0; // gearing ratio on motor
 
       public static final double POSITION_TOLERANCE_DEGREES = 1.0;
       public static final double MAX_CURRENT_AMPS = 40.0;
 
       public static final int ENCODER_TICKS_PER_REVOLUTION = 2048;
       public static final double SLEW_RATE_LIMITER = 3.0; // units per second
+
+      public static final double FORWARD_SOFT_LIMIT_DEGREES = LOWER_LIMIT; // forward limit of hood rotation in degrees
+      public static final double REVERSE_SOFT_LIMIT_DEGREES = UPPER_LIMIT; // reverse limit of hood rotation in degrees
+
+      public static final double HOOD_CURRENT_LIMIT = 30.0; // amps
+
+      public static final boolean INVERT_MOTOR = false;
+
+      public static final double FF_CAP = 0.3; // cap for feedforward to prevent excessive values
    }
 
    public static class robotStates {
       public enum State{
         FIRE_ON_THE_MOVE, // intake, index, and shoot on the move, disable climb motors
+        STOP_AND_SHOOT,       // stop the robot and shoot, no fire on the move, disable climb motors
         PUSH,             // motor problems, switch to defensive mode
         CLIMB,            // active during endgame - disengage other motors and engage climb motors
         IDLE              // default state, all motors off
       }
+  }
+
+  public static class ballisticConstants{
+    public static final double GRAVITY = 9.81; // m/s^2
+    public static final double SHOOTER_EXIT_VELOCITY = Units.feetToMeters(30);  // 30 ft/s converted to m/s, needs to be tuned based on shooter performance
+    public static final double HUB_HEIGHT = Units.feetToMeters(6);              // height of hub center from floor
+    public static final double SHOOTER_HEIGHT = Units.feetToMeters(2);          // height of shooter exit point from floor, needs to be measured
+
+    public static final int MAX_ATTEMPTS = 10; // max iterations for binary search in ballistic calculator
+
+    public static final double HOOD_HEIGHT_ERROR_TOLERANCE = Units.feetToMeters(1); // height of tolerance for hood height solution in ballistic calculator
   }
 }

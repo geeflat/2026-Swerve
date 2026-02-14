@@ -15,6 +15,8 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import com.ctre.phoenix6.controls.Follower;
 
+import frc.robot.ShuffleboardControl;
+
 import frc.robot.Constants;
 
 public class IndexSubsystem extends SubsystemBase {
@@ -44,7 +46,11 @@ public class IndexSubsystem extends SubsystemBase {
     verticalIndexLeader.getConfigurator().apply(config);
     verticalIndexFollower.getConfigurator().apply(config);
 
+    // register horizontalIndexMotor as a continuous motor in Shuffleboard
+    ShuffleboardControl.registerOpenLoopMotor("Horizontal Index Motor", horizontalIndexMotor);
 
+    // register verticalIndexLeader as a continuous motor in Shuffleboard
+    ShuffleboardControl.registerOpenLoopMotor("Vertical Index Motor", verticalIndexLeader);
   }
 
   public void horizontalSpeed(double velocity) {
