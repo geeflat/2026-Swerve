@@ -93,8 +93,6 @@ public class IntakeExtender extends SubsystemBase {
         // initialize position from encoders
         resetPositionFromEncoders();
 
-        // register leader with shuffleboard (follower should be same-ish)
-        ShuffleboardControl.registerPositionMotor("Intake Extender Leader", leaderMotor);
     }
 
     public void resetPositionFromEncoders(){
@@ -114,8 +112,7 @@ public class IntakeExtender extends SubsystemBase {
     }
 
     // move the extender up/down
-    public void setPosition(double positionDegrees) {
-        System.out.println("setPosition is called with "+positionDegrees);
+    public void setPositionDegrees(double positionDegrees) {
 
         if (leaderMotor == null){
             System.out.println("leaderMotor is null!");
@@ -138,11 +135,11 @@ public class IntakeExtender extends SubsystemBase {
     }
 
     public void extenderUp() {
-        setPosition(Constants.IntakeExtenderConstants.UP_POSITION_DEGREES);
+        setPositionDegrees(Constants.IntakeExtenderConstants.UP_POSITION_DEGREES);
     }
 
     public void extenderDown() {
-        setPosition(Constants.IntakeExtenderConstants.DOWN_POSITION_DEGREES);
+        setPositionDegrees(Constants.IntakeExtenderConstants.DOWN_POSITION_DEGREES);
     }
 
     public boolean atTargetPosition() {
@@ -239,4 +236,10 @@ public class IntakeExtender extends SubsystemBase {
     public void simulationPeriodic() {
         // This method will be called once per scheduler run during simulation
     }
+    public void applyPid(double kp, double ki, double kd) {
+        Slot0Configs slot0 = new Slot0Configs().withKP(kp).withKI(ki).withKD(kd);
+        TalonFXConfiguration config = new TalonFXConfiguration();
+        config.Slot0 = slot0;
+        leaderMotor.getConfigurator().apply(config);
+  }
 }

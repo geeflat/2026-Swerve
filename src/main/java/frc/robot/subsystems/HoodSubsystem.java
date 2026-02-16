@@ -40,8 +40,6 @@ public class HoodSubsystem extends SubsystemBase {
   public HoodSubsystem() {
     hoodMotor = new TalonFX(Constants.HoodConstants.hoodMotorID, Constants.HoodConstants.hoodMotorCANBus);
 
-    ShuffleboardControl.registerPositionMotor("Hood Motor", hoodMotor);
-
     TalonFXConfiguration hoodConfig = new TalonFXConfiguration();
     hoodConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
     hoodConfig.CurrentLimits.SupplyCurrentLimit = Constants.HoodConstants.HOOD_CURRENT_LIMIT;
@@ -68,7 +66,7 @@ public class HoodSubsystem extends SubsystemBase {
 
   }
 
-  public void setPosition(double positionDegrees) {
+  public void setPositionDegrees(double positionDegrees) {
     double positionRotaton = degreesToMotorRevolutions(positionDegrees);
 
     double angleRad = Math.toRadians(positionDegrees);
@@ -142,4 +140,12 @@ public class HoodSubsystem extends SubsystemBase {
   public void simulationPeriodic() {
     // This method will be called once per scheduler run during simulation
   }
+
+  public void applyPid(double kp, double ki, double kd) {
+    Slot0Configs slot0 = new Slot0Configs().withKP(kp).withKI(ki).withKD(kd);
+    TalonFXConfiguration config = new TalonFXConfiguration();
+    config.Slot0 = slot0;
+    hoodMotor.getConfigurator().apply(config);
+  }
+
 }

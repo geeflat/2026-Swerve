@@ -5,8 +5,10 @@
 package frc.robot.subsystems;
 import frc.robot.Constants;
 import frc.robot.ShuffleboardControl;
+import frc.robot.ShuffleboardControl.MotorAccessor;
 
 import com.ctre.phoenix6.configs.Slot0Configs;
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.VelocityVoltage;
@@ -38,9 +40,6 @@ public ShooterSubsystem() {
       Constants.ShooterConstants.INVERT_FOLLOWER
         ? MotorAlignmentValue.Opposed
         : MotorAlignmentValue.Aligned));
-
-    // register ShooterMotor1 as a continuous motor in Shuffleboard
-    ShuffleboardControl.registerVelocityMotor("Shooter Motor", shooterMotor1);
   }
 
   /**
@@ -59,13 +58,23 @@ public ShooterSubsystem() {
 
   public void shoot(){
 
+    setSpeed(Constants.ShooterConstants.FEED_FORWARD);
+
+  }
+
+  public double getSpeed(){
+    return shooterMotor1.getVelocity().getValueAsDouble();
+  }
+
+  public void setSpeed(double speed)
+  {
     final VelocityVoltage request = new VelocityVoltage(0).withSlot(0);
 
-    shooterMotor1.setControl(request.withVelocity(Constants.ShooterConstants.SHOOTER_SPEED).withFeedForward(Constants.ShooterConstants.FEED_FORWARD));
+    shooterMotor1.setControl(request.withVelocity(speed).withFeedForward(speed));
   }
 
   public void stop(){
-    shooterMotor1.setControl(new DutyCycleOut(0.0));
+    setSpeed(0.0);
   }
 
   /**
@@ -87,5 +96,12 @@ public ShooterSubsystem() {
   @Override
   public void simulationPeriodic() {
     // This method will be called once per scheduler run during simulation
+  }
+
+  public void applyPid(double kp, double ki, double kd) {
+      Slot0Configs slot0 = new Slot0Configs().withKP(kp).withKI(ki).withKD(kd);
+      TalonFXConfiguration config = new TalonFXConfiguration();
+      config.Slot0 = slot0;
+      shooterMotor1.getConfigurator().apply(config);
   }
 }

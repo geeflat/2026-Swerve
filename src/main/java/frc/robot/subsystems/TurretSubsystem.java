@@ -18,6 +18,7 @@ import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.util.datalog.DoubleLogEntry;
 import edu.wpi.first.wpilibj.DutyCycleEncoder;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import com.ctre.phoenix6.controls.DutyCycleOut;
@@ -42,10 +43,9 @@ public class TurretSubsystem extends SubsystemBase {
 
   /** Creates a new TurretSubsystem. */
   public TurretSubsystem() {
+
     turretMotor = new TalonFX(Constants.TurretConstants.turretMotorID, Constants.TurretConstants.turretMotorCANBus);
-    
-    // register turretMotor as a position motor in Shuffleboard
-    ShuffleboardControl.registerPositionMotor("Turret Motor", turretMotor);
+    turretMotor.getPosition().setUpdateFrequency(100);
 
     TalonFXConfiguration turretConfig = new TalonFXConfiguration();
     turretConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
@@ -73,7 +73,7 @@ public class TurretSubsystem extends SubsystemBase {
 
   }
 
-  public void setPosition(double positionDegrees) {
+  public void setPositionDegrees(double positionDegrees) {
     double positionRotaton = degreesToMotorRevolutions(positionDegrees);
     turretMotionMagicRequest.Position = positionRotaton;
     turretMotor.setControl(turretMotionMagicRequest);
@@ -99,7 +99,10 @@ public class TurretSubsystem extends SubsystemBase {
 
   public double getPositionDegrees() {
     // Convert encoder rotations to degrees
-    return revolutionsToDegrees(turretMotor.getPosition().getValueAsDouble());
+
+    double degrees = revolutionsToDegrees(turretMotor.getPosition().getValueAsDouble());
+
+    return degrees;
   }
 
   public double getTargetPositionDegrees() {
@@ -133,10 +136,18 @@ public class TurretSubsystem extends SubsystemBase {
   @Override
   public void periodic() {
     // This method will be called once per scheduler run
+
   }
 
   @Override
   public void simulationPeriodic() {
     // This method will be called once per scheduler run during simulation
+  }
+
+  public void applyPid(double kp, double ki, double kd) {
+    Slot0Configs slot0 = new Slot0Configs().withKP(kp).withKI(ki).withKD(kd);
+    TalonFXConfiguration config = new TalonFXConfiguration();
+    config.Slot0 = slot0;
+    turretMotor.getConfigurator().apply(config);
   }
 }

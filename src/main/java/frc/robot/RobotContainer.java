@@ -6,9 +6,12 @@ package frc.robot;
 
 import static edu.wpi.first.units.Units.*;
 
+import java.util.Map;
+
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -17,6 +20,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 
 import frc.robot.commands.IntakeForwardCommand;
 import frc.robot.commands.IntakeStopCommand;
@@ -25,18 +29,27 @@ import frc.robot.commands.ShooterStopCommand;
 import frc.robot.commands.IndexToShooterCommand;
 import frc.robot.commands.IntakeExtenderUp;
 import frc.robot.commands.IntakeExtenderDown;
+import frc.robot.Constants.BoundaryConstants;
+import frc.robot.ShuffleboardControl.MotorAccessor;
 import frc.robot.commands.IndexReverseCommand;
 import frc.robot.commands.IndexStopCommand;
+import frc.robot.commands.DynamicAimCommand;
 
 import frc.robot.generated.TunerConstants;
-import frc.robot.subsystems.CommandSwerveDrivetrain;
 
+import frc.robot.subsystems.CommandSwerveDrivetrain;
+import frc.robot.subsystems.HoodSubsystem;
+import frc.robot.subsystems.IndexSubsystem;
+import frc.robot.subsystems.IntakeExtender;
 import frc.robot.subsystems.IntakeSubsystem;
 import frc.robot.subsystems.ShooterSubsystem;
-import frc.robot.subsystems.IntakeExtender;
-import frc.robot.subsystems.IndexSubsystem;
+import frc.robot.subsystems.SimulationExtensions;
+import frc.robot.subsystems.TurretSubsystem;
+
+import frc.robot.BoundaryManager;
 
 import edu.wpi.first.networktables.GenericEntry;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
@@ -45,16 +58,18 @@ import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 
 public class RobotContainer {
 
+    HoodSubsystem hood;
+    IndexSubsystem index;
+    IntakeExtender intakeExtender;
     IntakeSubsystem intake;
     ShooterSubsystem shooter;
-    IntakeExtender intakeExtender;
-    IndexSubsystem index;
+    TurretSubsystem turret;
 
-    private Constants.robotStates.State currentState = Constants.robotStates.State.IDLE;
-    private FieldConstants.FieldRegion currentRegion;
+    private Constants.robotStates.State currentState = Constants.robotStates.State.FIRE_ON_THE_MOVE;
+    private FieldConstants.FieldRegion currentRegion = FieldConstants.FieldRegion.UNKNOWN;
     public FieldConstants.FieldRegion getFieldLocation() { return currentRegion; }
 
-    private double MaxSpeed = 1.0 * TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
+    private double MaxSpeed = BoundaryConstants.MaxSpeed * TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
     private double MaxAngularRate = RotationsPerSecond.of(0.75).in(RadiansPerSecond); // 3/4 of a rotation per second max angular velocity
 
     /* Setting up bindings for necessary control of the swerve drive platform */
@@ -72,7 +87,13 @@ public class RobotContainer {
 
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
 
+    private final BoundaryManager boundaryManager = new BoundaryManager();
+
     private GenericEntry robotStateEntry;
+    private GenericEntry robotFieldEntry;
+    private GenericEntry robotPoseEntry;
+    private GenericEntry turretAngleDisplay;
+    private GenericEntry hoodAngleDisplay;
 
     private static final ShuffleboardTab robotStateTab = Shuffleboard.getTab("Robot State");
 
@@ -107,38 +128,53 @@ public class RobotContainer {
     }
 
     public RobotContainer() {
-    try {
-
-
 
         intake = new IntakeSubsystem();
         shooter = new ShooterSubsystem();
         intakeExtender = new IntakeExtender();
         index = new IndexSubsystem();
+        hood = new HoodSubsystem();
+        turret = new TurretSubsystem();
+
+        if (RobotBase.isSimulation()) {
+            new SimulationExtensions(turret, hood);
+            drivetrain.resetPose(new Pose2d( 0.5, 0.5, new Rotation2d(0)));
+        }
 
         configureBindings();
         configureDefaults();
-        ShuffleboardControl.setupDashboard();
+        configureShuffleboard();
 
-        robotStateEntry = robotStateTab
-            .add("Robot State", "UNKNOWN")
-            .withWidget(BuiltInWidgets.kTextView)
-            .withPosition(0, 0)
-            .withSize(2, 1)
-            .getEntry();
-
-        setRobotState(Constants.robotStates.State.IDLE);
-    
-
-
-    } catch (Exception e) { 
-        System.err.println("RobotContainer constructor failed!");
-        e.printStackTrace();
-        throw e;
-    }
+        setRobotState(Constants.robotStates.State.FIRE_ON_THE_MOVE);  // temporarily moved from "IDLE" default to "FOM" default for testing purposes.
     }
 
     private void configureDefaults() {
+
+        drivetrain.setDefaultCommand(
+        // Drivetrain will execute this command periodically
+            drivetrain.applyRequest(() -> {
+                double leftY = joystick.getLeftY();
+                double leftX = -joystick.getLeftX();
+                double rightX = -joystick.getRightX();
+
+                double deadband = 0.12;                             // added a deadband because my joysticks do not default to 0/0/0
+                leftY = Math.abs(leftY) > deadband ? leftY : 0;
+                leftX = Math.abs(leftX) > deadband ? leftX : 0;
+                rightX = Math.abs(rightX) > deadband ? rightX : 0;
+
+                double vx = leftX * MaxSpeed;
+                double vy = leftY * MaxSpeed;
+                double omega = rightX * MaxAngularRate;
+
+                ChassisSpeeds raw = new ChassisSpeeds(vx, vy, omega);
+
+                ChassisSpeeds safe = boundaryManager.constrainSpeeds(drivetrain.getPose(), raw);
+
+                return drive.withVelocityX(safe.vxMetersPerSecond * MaxSpeed) // Drive forward with negative Y (forward)
+                    .withVelocityY(safe.vyMetersPerSecond * MaxSpeed) // Drive left with negative X (left)
+                    .withRotationalRate(safe.omegaRadiansPerSecond * MaxAngularRate); // Drive counterclockwise with negative X (left)
+            })
+        );
 
         intake.setDefaultCommand(
             Commands.run(intake::stop, intake)
@@ -162,23 +198,36 @@ public class RobotContainer {
         // Note that X is defined as forward according to WPILib convention,
         // and Y is defined as to the left according to WPILib convention.
 
-        drivetrain.setDefaultCommand(
-        // Drivetrain will execute this command periodically
-            drivetrain.applyRequest(() ->
-                drive.withVelocityX(0) 
-                    .withVelocityY(0)
-                    .withRotationalRate(0)
-            )
-        );
 
-        idleTrigger().negate().whileTrue(
-        // Drivetrain will execute this command periodically
-            drivetrain.applyRequest(() ->
-                drive.withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
-                    .withVelocityY(-joystick.getLeftX() * MaxSpeed) // Drive left with negative X (left)
-                    .withRotationalRate(-joystick.getRightX() * MaxAngularRate) // Drive counterclockwise with negative X (left)
-            )
-        );
+
+        // idleTrigger().negate().whileTrue(
+        // // Drivetrain will execute this command periodically
+        //     // drivetrain.applyRequest(() ->
+        //     //     drive.withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
+        //     //         .withVelocityY(-joystick.getLeftX() * MaxSpeed) // Drive left with negative X (left)
+        //     //         .withRotationalRate(-joystick.getRightX() * MaxAngularRate) // Drive counterclockwise with negative X (left)
+        //     // );
+        //     drivetrain.applyRequest(() -> {
+        //         double leftY = -joystick.getLeftY();
+        //         double leftX = -joystick.getLeftX();
+        //         double rightX = -joystick.getRightX();
+
+        //         System.out.println("LeftY = " + leftY + "Left X = " + leftX + "Right X = " + rightX);
+
+        //         double deadband = 0.1;
+                
+        //         leftY = Math.abs(leftY) > deadband ? leftY : 0;
+        //         leftX = Math.abs(leftX) > deadband ? leftX : 0;
+        //         rightX = Math.abs(rightX) > deadband ? rightX : 0;
+
+        //         System.out.println("After deadband: Y=" + leftY + ", X=" + leftX + ", Rot=" + rightX);
+
+        //         return drive
+        //            .withVelocityX(leftY * MaxSpeed)
+        //             .withVelocityY(leftX * MaxSpeed)
+        //             .withRotationalRate(rightX * MaxAngularRate);
+        //     })
+        // );
 
         // Idle while the robot is disabled. This ensures the configured
         // neutral mode is applied to the drive motors while disabled.
@@ -187,10 +236,12 @@ public class RobotContainer {
             drivetrain.applyRequest(() -> idle).ignoringDisable(true)
         );
 
-        joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
-        joystick.b().whileTrue(drivetrain.applyRequest(() ->
-            point.withModuleDirection(new Rotation2d(-joystick.getLeftY(), -joystick.getLeftX()))
-        ));
+        // joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
+        // joystick.b().whileTrue(drivetrain.applyRequest(() ->
+        //     point.withModuleDirection(new Rotation2d(-joystick.getLeftY(), -joystick.getLeftX()))
+        // ));
+
+        joystick.b().whileTrue(new DynamicAimCommand(turret, hood, this));
 
         // Run SysId routines when holding back/start and X/Y.
         // Note that each routine should be run exactly once in a single log.
@@ -228,6 +279,8 @@ public class RobotContainer {
                 new IntakeForwardCommand(intake)
             )
         );
+
+        fireOnMoveTrigger().whileTrue(new DynamicAimCommand(turret, hood, this));
 
         // for stop and shoot, if we're not unjamming or shooting, turn on the intake, turn off shooter & index.
         stopAndShootTrigger()
@@ -288,6 +341,105 @@ public class RobotContainer {
         );
     }
 
+    public void configureShuffleboard(){
+        ShuffleboardControl.setupDashboard();
+
+        // Display robot state - Fire on Move, Stop & Shoot, etc.
+        robotStateEntry = robotStateTab
+            .add("Robot State", "UNKNOWN")
+            .withWidget(BuiltInWidgets.kTextView)
+            .withPosition(0, 0)
+            .withSize(2, 1)
+            .getEntry();
+
+
+        // Display which region the robot is in - Blue Left, Red Right, etc.
+        robotFieldEntry = robotStateTab
+            .add("Field Location", "UNKNOWN")
+            .withWidget(BuiltInWidgets.kTextView)
+            .withPosition(2, 0)
+            .withSize(2, 1)
+            .getEntry();
+
+        // Display robot coordinates - currently only Swerve odometry
+        robotPoseEntry = robotStateTab
+            .add("Pose X Y Angle", "0.00, 0.00, 0")
+            .withWidget(BuiltInWidgets.kTextView)
+            .withPosition(0, 2)
+            .withSize(3, 1)
+            .getEntry();
+
+        // display Hood angle for troubleshooting
+        hoodAngleDisplay = robotStateTab
+            .add("Hood Angle (deg)", 0.0)
+            .withWidget(BuiltInWidgets.kNumberBar)
+            .withProperties(Map.of("min", 0, "max", 90))
+            .withPosition(0, 3)
+            .withSize(2, 1)
+            .getEntry();
+
+        // display turret angle for troubleshooting
+        turretAngleDisplay = robotStateTab
+            .add("Turret Angle (deg)", 0.0)
+            .withWidget(BuiltInWidgets.kNumberBar)
+            .withProperties(Map.of("min", -180, "max", 180))
+            .withPosition(3, 3)
+            .withSize(2, 1)
+            .getEntry();
+
+
+        ShuffleboardControl.registerOpenLoopMotor("Intake Roller", new MotorAccessor() {
+            @Override public void setPower(double p) { intake.setPower(p); }
+            @Override public double getPower() { return intake.getPower(); }
+            @Override public void setSpeed(double rpm) {}
+            @Override public double getSpeedRpm() { return 0.0; }
+            @Override public void setPositionDegrees(double d) {}
+            @Override public double getPositionDegrees() { return 0.0; }
+            @Override public void applyPid(double kp, double ki, double kd) {}
+        });
+
+        ShuffleboardControl.registerVelocityMotor("Shooter", new MotorAccessor() {
+            @Override public void setSpeed(double rpm) { shooter.setSpeed(rpm); }
+            @Override public double getSpeedRpm() { return shooter.getSpeed(); }
+            @Override public void setPower(double p) {}
+            @Override public double getPower() { return 0.0; }
+            @Override public void setPositionDegrees(double d) {}
+            @Override public double getPositionDegrees() { return 0.0; }
+            @Override public void applyPid(double kp, double ki, double kd) { shooter.applyPid(kp, ki, kd); }
+        });
+
+        ShuffleboardControl.registerPositionMotor("Intake Extender", new MotorAccessor() {
+            @Override public void setPositionDegrees(double deg) { intakeExtender.setPositionDegrees(deg); }
+            @Override public double getPositionDegrees() { return intakeExtender.getPositionDegrees(); }
+            @Override public void setPower(double p) {}
+            @Override public double getPower() { return 0.0; }
+            @Override public void setSpeed(double rpm) {}
+            @Override public double getSpeedRpm() { return 0.0; }
+            @Override public void applyPid(double kp, double ki, double kd) { intakeExtender.applyPid(kp, ki, kd); }
+        });
+
+        ShuffleboardControl.registerPositionMotor("Hood", new MotorAccessor() {
+            @Override public void setPositionDegrees(double deg) { hood.setPositionDegrees(deg); }
+            @Override public double getPositionDegrees() { return hood.getPositionDegrees(); }
+            @Override public void setPower(double p) {}
+            @Override public double getPower() { return 0.0; }
+            @Override public void setSpeed(double rpm) {}
+            @Override public double getSpeedRpm() { return 0.0; }
+            @Override public void applyPid(double kp, double ki, double kd) { hood.applyPid(kp, ki, kd); }
+        });
+
+        ShuffleboardControl.registerPositionMotor("Turret", new MotorAccessor() {
+            @Override public void setPositionDegrees(double deg) { turret.setPositionDegrees(deg); }
+            @Override public double getPositionDegrees() { return turret.getPositionDegrees(); }
+            @Override public void setPower(double p) {}
+            @Override public double getPower() { return 0.0; }
+            @Override public void setSpeed(double rpm) {}
+            @Override public double getSpeedRpm() { return 0.0; }
+            @Override public void applyPid(double kp, double ki, double kd) { hood.applyPid(kp, ki, kd); }
+        });
+
+    }
+
     public Command getAutonomousCommand() {
         // Simple drive forward auton
         final var idle = new SwerveRequest.Idle();
@@ -331,5 +483,46 @@ public class RobotContainer {
             case STOP_AND_SHOOT -> "Stop and Shoot";
             default -> "none";
         };
+    }
+
+    public Pose2d getPose() {
+        return drivetrain.getPose();
+    }
+
+    public ChassisSpeeds getRobotSpeeds(){
+        return drivetrain.getCurrentRobotRelativeSpeeds();
+    }
+
+    public String getFieldRegionString() {
+        Pose2d pose = getPose();
+        FieldConstants.FieldRegion region = FieldConstants.CurrentFieldState(pose);
+        return FieldConstants.toString(region);
+    }
+
+    public void updateFieldAndPoseDisplay(){
+        // Get robot coordinates (pose)
+        Pose2d pose = getPose();
+
+        // Get region from robot coordinates
+        currentRegion = FieldConstants.CurrentFieldState(pose);
+
+        // update Shuffleboard while we're here
+        if(robotFieldEntry != null) {
+            robotFieldEntry.setString(FieldConstants.toString(currentRegion));
+        }
+        if(robotPoseEntry != null) {
+            robotPoseEntry.setString(getPoseString());
+        }
+        if (hoodAngleDisplay != null) {
+            hoodAngleDisplay.setDouble(hood.getPositionDegrees());
+        }
+        if(turretAngleDisplay != null) {
+            turretAngleDisplay.setDouble(turret.getPositionDegrees());
+        }
+    }
+
+    public String getPoseString() {
+        Pose2d pose = getPose();
+        return String.format("X: %.2f Y: %.2f Rot: %.1f", pose.getX(), pose.getY(), pose.getRotation().getDegrees());
     }
 }

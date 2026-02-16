@@ -21,9 +21,6 @@ public class IntakeSubsystem extends SubsystemBase {
 
     intakeMotor1 = new TalonFX(Constants.IntakeConstants.intakeMotor1ID, Constants.IntakeConstants.intakemotor1CANBus);
 
-    // register IntakeMotor1 as a continuous motor in Shuffleboard
-    ShuffleboardControl.registerOpenLoopMotor("Intake Motor", intakeMotor1);
-
   }
 
   /**
@@ -40,20 +37,24 @@ public class IntakeSubsystem extends SubsystemBase {
         });
   }
  
-  public void setSpeed(double speed){
-    intakeMotor1.setControl(new DutyCycleOut(speed));
+  public void setPower(double powerPercent){
+    intakeMotor1.setControl(new DutyCycleOut(powerPercent));
+  }
+
+  public double getPower(){
+    return intakeMotor1.getDutyCycle().getValueAsDouble();
   }
   
   public void intake(){
-    setSpeed(Constants.IntakeConstants.INTAKE_SPEED);
+    setPower(Constants.IntakeConstants.INTAKE_POWER_PERCENT);
   }
 
   public void stop(){
-    setSpeed(0.0);
+    setPower(0.0);
   }
 
   public void reverseIntake(){
-    setSpeed(-Constants.IntakeConstants.INTAKE_SPEED);
+    setPower(-Constants.IntakeConstants.INTAKE_POWER_PERCENT);
   }
 
   /**

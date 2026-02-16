@@ -35,7 +35,7 @@ public final class Constants {
   public static class IntakeConstants {
     public static final int intakeMotor1ID = 0;
     public static final String intakemotor1CANBus = "canivore1";
-    public static final double INTAKE_SPEED = 0.3;
+    public static final double INTAKE_POWER_PERCENT = 0.3;
   }
 
   public static class ShooterConstants {
@@ -192,5 +192,12 @@ public final class Constants {
     public static final int MAX_ATTEMPTS = 10; // max iterations for binary search in ballistic calculator
 
     public static final double HOOD_HEIGHT_ERROR_TOLERANCE = Units.feetToMeters(1); // height of tolerance for hood height solution in ballistic calculator
+  }
+
+  public static class BoundaryConstants{
+    public static final double ROBOT_MARGIN = 0.35;
+    public static final double SLOWDOWN_MARGIN = 1.5;
+    public static final double HARD_STOP_MARGIN = 0.25;
+    public static final double MaxSpeed = 1.0;
   }
 }

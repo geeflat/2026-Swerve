@@ -2,7 +2,6 @@ package frc.robot;
 
 import com.ctre.phoenix6.configs.Slot0Configs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.hardware.TalonFX;
 import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj.shuffleboard.BuiltInLayouts;
 import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
@@ -48,26 +47,26 @@ public class ShuffleboardControl {
     }
 
     // ===================================================================
-    // Registration methods
+    // Registration methods (call these from RobotContainer)
     // ===================================================================
 
-    public static void registerOpenLoopMotor(String name, TalonFX motor) {
+    public static void registerOpenLoopMotor(String name, MotorAccessor accessor) {
         var layout = createMotorLayout(openLoopTab, name);
-        addOpenLoopControls(layout, motor);
+        addOpenLoopControls(layout, accessor);
     }
 
-    public static void registerVelocityMotor(String name, TalonFX motor) {
+    public static void registerVelocityMotor(String name, MotorAccessor accessor) {
         var layout = createMotorLayout(velocityTab, name);
-        addVelocityControls(layout, motor);
+        addVelocityControls(layout, accessor);
     }
 
-    public static void registerPositionMotor(String name, TalonFX motor) {
+    public static void registerPositionMotor(String name, MotorAccessor accessor) {
         var layout = createMotorLayout(positionTab, name);
-        addPositionControls(layout, motor);
+        addPositionControls(layout, accessor);
     }
 
     // ===================================================================
-    // Internal helpers
+    // Internal layout & control helpers
     // ===================================================================
 
     private static ShuffleboardLayout createMotorLayout(ShuffleboardTab tab, String name) {
@@ -76,7 +75,7 @@ public class ShuffleboardControl {
                 .withProperties(Map.of("Label position", "TOP"));
     }
 
-    private static void addOpenLoopControls(ShuffleboardLayout layout, TalonFX motor) {
+    private static void addOpenLoopControls(ShuffleboardLayout layout, MotorAccessor accessor) {
         GenericEntry power = layout.add("Power %", 0.0)
                 .withWidget(BuiltInWidgets.kNumberSlider)
                 .withProperties(Map.of("min", -1.0, "max", 1.0))
@@ -90,11 +89,11 @@ public class ShuffleboardControl {
                 .withWidget(BuiltInWidgets.kNumberBar)
                 .getEntry();
 
-        motorGroups.add(new MotorControlGroup(motor, MotorControlType.OPEN_LOOP_POWER,
+        motorGroups.add(new MotorControlGroup(accessor, MotorControlType.OPEN_LOOP_POWER,
                 enabled, power, current, null, null, null, null, null));
     }
 
-    private static void addVelocityControls(ShuffleboardLayout layout, TalonFX motor) {
+    private static void addVelocityControls(ShuffleboardLayout layout, MotorAccessor accessor) {
         GenericEntry rpm = layout.add("RPM Setpoint", 0.0)
                 .withWidget(BuiltInWidgets.kNumberSlider)
                 .withProperties(Map.of("min", 0, "max", 6000, "block increment", 100))
@@ -108,7 +107,7 @@ public class ShuffleboardControl {
                 .withWidget(BuiltInWidgets.kNumberBar)
                 .getEntry();
 
-        // PID fields
+        // PID tuning
         GenericEntry kp = layout.add("kP", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
         GenericEntry ki = layout.add("kI", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
         GenericEntry kd = layout.add("kD", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
@@ -117,11 +116,11 @@ public class ShuffleboardControl {
                 .withProperties(Map.of("true color", "#00FF00", "false color", "#808080"))
                 .getEntry();
 
-        motorGroups.add(new MotorControlGroup(motor, MotorControlType.CLOSED_LOOP_VELOCITY,
+        motorGroups.add(new MotorControlGroup(accessor, MotorControlType.CLOSED_LOOP_VELOCITY,
                 enabled, rpm, currentRpm, null, kp, ki, kd, apply));
     }
 
-    private static void addPositionControls(ShuffleboardLayout layout, TalonFX motor) {
+    private static void addPositionControls(ShuffleboardLayout layout, MotorAccessor accessor) {
         GenericEntry pos = layout.add("Position (deg)", 0.0)
                 .withWidget(BuiltInWidgets.kNumberSlider)
                 .withProperties(Map.of("min", Constants.HoodConstants.LOWER_LIMIT, "max", Constants.HoodConstants.UPPER_LIMIT))
@@ -135,7 +134,7 @@ public class ShuffleboardControl {
                 .withWidget(BuiltInWidgets.kDial)
                 .getEntry();
 
-        // PID fields
+        // PID tuning
         GenericEntry kp = layout.add("kP", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
         GenericEntry ki = layout.add("kI", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
         GenericEntry kd = layout.add("kD", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
@@ -144,7 +143,7 @@ public class ShuffleboardControl {
                 .withProperties(Map.of("true color", "#00FF00", "false color", "#808080"))
                 .getEntry();
 
-        motorGroups.add(new MotorControlGroup(motor, MotorControlType.POSITION_CONTROL,
+        motorGroups.add(new MotorControlGroup(accessor, MotorControlType.POSITION_CONTROL,
                 null, pos, currentPos, go, kp, ki, kd, apply));
     }
 
@@ -163,7 +162,7 @@ public class ShuffleboardControl {
     // Motor Control Group
     // ===================================================================
     private static class MotorControlGroup {
-        private final TalonFX motor;
+        private final MotorAccessor accessor;
         private final MotorControlType type;
 
         private final GenericEntry enabled;
@@ -177,11 +176,11 @@ public class ShuffleboardControl {
 
         private boolean lastApplyState = false;
 
-        MotorControlGroup(TalonFX motor, MotorControlType type,
+        MotorControlGroup(MotorAccessor accessor, MotorControlType type,
                           GenericEntry enabled, GenericEntry setpoint, GenericEntry currentValue,
                           GenericEntry goButton,
                           GenericEntry kp, GenericEntry ki, GenericEntry kd, GenericEntry apply) {
-            this.motor = motor;
+            this.accessor = accessor;
             this.type = type;
             this.enabled = enabled;
             this.setpoint = setpoint;
@@ -194,7 +193,7 @@ public class ShuffleboardControl {
         }
 
         void emergencyStop() {
-            motor.set(0.0);
+            accessor.setPower(0.0);
             if (currentValue != null) currentValue.setDouble(0.0);
             if (enabled != null) enabled.setBoolean(false);
             if (goButton != null) goButton.setBoolean(false);
@@ -204,37 +203,31 @@ public class ShuffleboardControl {
         void update() {
             boolean isEnabled = enabled != null && enabled.getBoolean(false);
 
-            if (!isEnabled) {
-                motor.set(0.0);
-                if (currentValue != null) currentValue.setDouble(0.0);
-                return;
-            }
-
             // Normal motor control
             switch (type) {
                 case OPEN_LOOP_POWER:
                     double power = setpoint.getDouble(0.0);
-                    motor.set(power);
-                    if (currentValue != null) currentValue.setDouble(power);
+                    accessor.setPower(power);
+                    if (currentValue != null) currentValue.setDouble(accessor.getPower());
                     break;
 
                 case CLOSED_LOOP_VELOCITY:
                     double rpm = setpoint.getDouble(0.0);
-                    // TODO: Replace with your actual velocity command
-                    // motor.setControl(new VelocityVoltage(Units.rotationsPerMinuteToRotationsPerSecond(rpm)));
+                    accessor.setSpeed(rpm);
+                    if (currentValue != null) currentValue.setDouble(accessor.getSpeedRpm());
                     break;
 
                 case POSITION_CONTROL:
                     if (goButton != null && goButton.getBoolean(false)) {
                         double target = setpoint.getDouble(0.0);
-                        // TODO: Replace with your position command
-                        // motor.setPositionDegrees(target);
+                        accessor.setPositionDegrees(target);
                         goButton.setBoolean(false);
                     }
+                    if (currentValue != null) currentValue.setDouble(accessor.getPositionDegrees());
                     break;
             }
 
-            // PID Apply - rising edge detection (works even when disabled)
+            // PID Apply - rising edge detection (always runs)
             if (applyPidButton != null) {
                 boolean currentApply = applyPidButton.getBoolean(false);
 
@@ -243,18 +236,9 @@ public class ShuffleboardControl {
                     double ki = kiEntry.getDouble(0.0);
                     double kd = kdEntry.getDouble(0.0);
 
-                    Slot0Configs slot0 = new Slot0Configs()
-                        .withKP(kp)
-                        .withKI(ki)
-                        .withKD(kd);
+                    accessor.applyPid(kp, ki, kd);
 
-                    TalonFXConfiguration config = new TalonFXConfiguration();
-                    config.Slot0 = slot0;
-
-                    motor.getConfigurator().apply(config);
-
-                    System.out.println("Applied PID to motor " + motor.getDeviceID() +
-                                       ": kP=" + kp + ", kI=" + ki + ", kD=" + kd);
+                    System.out.println("Applied PID: kP=" + kp + ", kI=" + ki + ", kD=" + kd);
 
                     applyPidButton.setBoolean(false);
                 }
@@ -262,5 +246,17 @@ public class ShuffleboardControl {
                 lastApplyState = currentApply;
             }
         }
+    }
+
+    public interface MotorAccessor {
+        void setPower(double powerPercent);
+        void setSpeed(double rpm);
+        void setPositionDegrees(double degrees);
+
+        double getPower();
+        double getSpeedRpm();
+        double getPositionDegrees();
+
+        void applyPid(double kp, double ki, double kd);
     }
 }
