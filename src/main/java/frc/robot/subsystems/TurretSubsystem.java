@@ -5,6 +5,7 @@
 package frc.robot.subsystems;
 import frc.robot.Constants;
 import frc.robot.ShuffleboardControl;
+import frc.robot.Constants.TurretConstants;
 
 import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
 import com.ctre.phoenix6.configs.Slot0Configs;
@@ -74,10 +75,16 @@ public class TurretSubsystem extends SubsystemBase {
   }
 
   public void setPositionDegrees(double positionDegrees) {
+
+    positionDegrees = (((positionDegrees + 180) % 360) - 180);
+
+    // Convert to motor rotations, then pass the rotations value to MM
     double positionRotaton = degreesToMotorRevolutions(positionDegrees);
     turretMotionMagicRequest.Position = positionRotaton;
     turretMotor.setControl(turretMotionMagicRequest);
-    currentTargetDegrees = positionDegrees;
+
+    // save "current target" for "getCurrentTarget()"
+      currentTargetDegrees = positionDegrees;
   }
 
   public double degreesToMotorRevolutions(double degrees) {
@@ -100,9 +107,7 @@ public class TurretSubsystem extends SubsystemBase {
   public double getPositionDegrees() {
     // Convert encoder rotations to degrees
 
-    double degrees = revolutionsToDegrees(turretMotor.getPosition().getValueAsDouble());
-
-    return degrees;
+    return revolutionsToDegrees(turretMotor.getPosition().getValueAsDouble());
   }
 
   public double getTargetPositionDegrees() {
@@ -149,5 +154,17 @@ public class TurretSubsystem extends SubsystemBase {
     TalonFXConfiguration config = new TalonFXConfiguration();
     config.Slot0 = slot0;
     turretMotor.getConfigurator().apply(config);
+  }
+
+  public void zeroEncoder() {
+    turretMotor.setPosition(TurretConstants.HOME_ANGLE_DEGREES);
+  }
+
+  public void setPower(double power){
+    turretMotor.setControl(new DutyCycleOut(power));
+  }
+
+  public void stop() {
+    turretMotor.set(0.0);
   }
 }

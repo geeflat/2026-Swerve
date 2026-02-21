@@ -9,6 +9,9 @@ import com.ctre.phoenix6.HootAutoReplay;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.commands.TurretHomeCommand;
+
+import frc.robot.Constants;
 
 public class Robot extends TimedRobot {
     private Command m_autonomousCommand;
@@ -22,8 +25,18 @@ public class Robot extends TimedRobot {
 
     public Robot() {
         m_robotContainer = new RobotContainer();
+
+        // Update Shuffleboard every 100 ms, offset 5 ms
         addPeriodic(ShuffleboardControl::update, 0.020, 0.005);
+
+        // Update field & pose every 20 ms, offset 5 ms.
         addPeriodic(m_robotContainer::updateFieldAndPoseDisplay, 0.020, 0.005);
+        
+        // Check limelight every 100 ms, offset 10 ms.
+        addPeriodic(m_robotContainer.getLimelight()::periodic, 0.100, 0.10);
+
+        // update swerve odometry with Limelight vision every 100 ms, offset 35 ms.
+        addPeriodic(m_robotContainer::updatePoseWithVision, 0.100, 0.035);
     }
 
     @Override
@@ -60,6 +73,18 @@ public class Robot extends TimedRobot {
     public void teleopInit() {
         if (m_autonomousCommand != null) {
             CommandScheduler.getInstance().cancel(m_autonomousCommand);
+        }
+        
+        // only initialize from limelight if "Initialization" constant is true (change in Constants.java)
+        // We will likely move this to AutonomousInit when we're confident that everything works well.
+        if (Constants.ENABLE_LIMELIGHT_INITIALIZATION) { 
+            m_robotContainer.resetPoseFromLimelight();
+        }
+
+        if (Constants.ENABLE_TURRET_HOMING){                                // only initialize turret if HOMING is true. (change in Constants.java)
+            CommandScheduler.getInstance().schedule(                        // eventually move this to AutonomousInit when we're done testing.
+                new TurretHomeCommand(m_robotContainer.getTurret())
+            );
         }
     }
 

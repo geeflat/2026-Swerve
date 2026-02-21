@@ -1,5 +1,7 @@
 package frc.robot;
 
+import static edu.wpi.first.units.Units.Rotation;
+
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -206,6 +208,24 @@ public final class FieldConstants {
   public static final Translation2d RED_HUB_TARGET = new Translation2d(RED_HUB_TARGET_X, RED_HUB_TARGET_Y);
   public static final Translation2d RED_LEFT_TARGET = new Translation2d(RED_TARGET_X, RED_LEFT_TARGET_Y);
   public static final Translation2d RED_RIGHT_TARGET = new Translation2d(RED_TARGET_X, RED_RIGHT_TARGET_Y);
+
+  public static final Pose2d BLUE_LEFT_TRENCH_START = new Pose2d(1.0, 1.0, new Rotation2d(0.0));
+  public static final Pose2d RED_LEFT_TRENCH_START = new Pose2d((FIELD_LENGTH_X - 1.0), (FIELD_WIDTH_Y - 1.0), new Rotation2d(180.0));
+
+  // Right is "DOWN" on the official map; Blue is "RIGHT" on the official map
+  // 100" in "Y" direction puts us roughly in the center of the bump
+
+  public static final Pose2d NEUTRAL_BLUE_LEFT_POSE2D   =   new Pose2d(BLUE_GATE_MAX_X + Units.inchesToMeters(50),                  Units.inchesToMeters(100), new Rotation2d(0.0));
+  public static final Pose2d NEUTRAL_BLUE_RIGHT_POSE2D  =   new Pose2d(BLUE_GATE_MAX_X + Units.inchesToMeters(50),  FIELD_WIDTH_Y - Units.inchesToMeters(100), new Rotation2d(0.0));
+
+  public static final Pose2d NEUTRAL_RED_LEFT_POSE2D    =   new Pose2d(RED_GATE_MAX_X - Units.inchesToMeters(50),                  Units.inchesToMeters(100), new Rotation2d(180.0));
+  public static final Pose2d NEUTRAL_RED_RIGHT_POSE2D   =   new Pose2d(RED_GATE_MAX_X - Units.inchesToMeters(50),  FIELD_WIDTH_Y - Units.inchesToMeters(100), new Rotation2d(180.0));
+
+  public static final Pose2d BLUE_ALLIANCE_LEFT_POSE2D  =   new Pose2d(BLUE_DEEP_MAX_X,                 Units.inchesToMeters(100), new Rotation2d(0.0));
+  public static final Pose2d BLUE_ALLIANCE_RIGHT_POSE2D =   new Pose2d(BLUE_DEEP_MAX_X, FIELD_WIDTH_Y - Units.inchesToMeters(100), new Rotation2d(0.0));
+
+  public static final Pose2d RED_ALLIANCE_LEFT_POSE2D   =   new Pose2d(RED_DEEP_MIN_X,                  Units.inchesToMeters(100), new Rotation2d(180.0));
+  public static final Pose2d RED_ALLIANCE_RIGHT_POSE2D  =   new Pose2d(RED_DEEP_MIN_X,  FIELD_WIDTH_Y - Units.inchesToMeters(100), new Rotation2d(180.0));
   
   public enum FieldRegion {
     BLUE_DEEP_LEFT,

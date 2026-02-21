@@ -5,7 +5,9 @@
 package frc.robot;
 
 import edu.wpi.first.math.util.Units;
-
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.util.Color;
 
 /**
  * The Constants class provides a convenient place for teams to hold robot-wide numerical or boolean
@@ -16,7 +18,11 @@ import edu.wpi.first.math.util.Units;
  * constants are needed, to reduce verbosity.
  */
 public final class Constants {
-    public static class OperatorConstants {
+
+  public static final boolean ENABLE_LIMELIGHT_INITIALIZATION = true;
+  public static final boolean ENABLE_TURRET_HOMING = true;
+
+  public static class OperatorConstants {
 
     public static final int kDriverControllerPort = 0;
 
@@ -29,7 +35,12 @@ public final class Constants {
     public static final int UNJAM_BUTTON = 5;
     public static final int STOP_AND_SHOOT_BUTTON = 6;
 
-    public static final int FIRE_BUTTON = 11;
+    public static final int FIRE_BUTTON = 7;
+
+    public static final int CLIMB_RAISE_ARM_BUTTON = 8;
+    public static final int CLIMB_LOWER_ARM_BUTTON = 9;
+    public static final int EXTEND_HOOK_BUTTON     = 10;
+    public static final int RETRACT_HOOK_BUTTON    = 11;
   }
 
   public static class IntakeConstants {
@@ -122,21 +133,28 @@ public final class Constants {
       public static final double MOTION_ACCELERATION = 800;
 
       public static final double ENCODER_TICKS_PER_REVOLUTION = 2048;
-      public static final double SLEW_RATE_LIMITER = 3.0; // units per second
+      public static final double SLEW_RATE_LIMITER = 3.0;           // units per second
 
       public static final double MOTOR_TOOTH_COUNT = 22.0;
       public static final double TURRET_TOOTH_COUNT = 120.0;
 
       public static final double GEAR_RATIO = TURRET_TOOTH_COUNT / MOTOR_TOOTH_COUNT;
 
-      public static final double TURRET_CURRENT_LIMIT = 30.0; // amps
+      public static final double TURRET_CURRENT_LIMIT = 30.0;       // amps
 
-      public static final double POSITION_TOLERANCE_DEGREES = 2; // doesn't need to be perfectly accurate, we have a +-3' window
+      public static final double POSITION_TOLERANCE_DEGREES = 2;    // doesn't need to be perfectly accurate, we have a +-3' window
 
       public static final double FORWARD_SOFT_LIMIT_DEGREES =  180; // forward limit of turret rotation in degrees
       public static final double REVERSE_SOFT_LIMIT_DEGREES = -180; // reverse limit of turret rotation in degrees
 
       public static final boolean INVERT_MOTOR = false;
+
+      public static final double LARGE_ERROR = 15.0;                // define "way off" for "disable turret while it is way off target"
+
+      public static final int HOMING_SWITCH_PORT = 9;       // port for the sensor
+      public static final double HOMING_SPEED = 0.15;       // slow and safe
+      public static final double  HOMING_TIMEOUT = 8.0;     // seconds
+      public static final double HOME_ANGLE_DEGREES = 0.0;  // what "home" means (we may need to adjust this.)
    }
 
    public static class HoodConstants {
@@ -199,5 +217,68 @@ public final class Constants {
     public static final double SLOWDOWN_MARGIN = 1.5;
     public static final double HARD_STOP_MARGIN = 0.25;
     public static final double MaxSpeed = 1.0;
+  }
+
+  public static class AutoConstants{
+    public static final int TRANSLATION_PID = 1;
+    public static final int ROTATION_PID = 2;
+  }
+
+  public static class CandleConstants{
+    public static final int CANDLE_DEVICE_ID = 99;
+    public static final String CANDLE_CANBUS = "canivore";
+
+    // robot state colors
+    public static final Color READY_TO_SHOOT_COLOR  = Color.kGreen;             // default state is the robot ready to shoot
+    public static final Color RED_ALLIANCE_COLOR    = Color.kRed;               // fallthrough colors are alliance
+    public static final Color BLUE_ALLIANCE_COLOR   = Color.kBlue;              // alliance blue 
+    public static final Color UNJAM_COLOR           = Color.kYellow;            // Color to set CANdle when unjam button is pressed
+    public static final Color IDLE_COLOR            = Color.kWhite;             // Color to set CANdle when robot is in IDLE state
+    public static final Color ERROR_COLOR           = Color.kOrange;            // Error color (this is bad)
+    public static final Color TURRET_AIMING         = Color.kPurple;            // Turret aiming (and not ready to shoot)
+    public static final Color CLIMB_COLOR           = Color.kDarkOliveGreen;    // Switch to green when Climb state
+    public static final Color PUSH_COLOR            = Color.kWhite;             // will also strobe
+
+    public static final Color DEFAULT_COLOR         = Color.kWhite ;            // setting default.
+
+    public static final double NO_STROBE = 0.0;
+    public static final double DEFAULT_STROBE_HZ = 4.0;                         // 4 cycles/second is default strobe
+    public static final double FAST_STROBE_HZ = 8.0;                            // 8 cycles/second is fast strobe
+  }
+
+  public static class ClimbConstants{
+    public static final int HOOK_MOTOR_ID = 98;
+    public static final String HOOK_MOTOR_CANBUS = "canivore";
+    public static final int HOOK_GEAR_RATIO = 1;
+    public static final double HOOK_MOTION_CRUISE_VELOCITY = 80.0;
+    public static final double HOOK_MOTION_ACCELERATION = 150.0;
+    public static final double HOOK_MOTION_JERK = 0.0;
+    public static final double HOOK_kP = 4.0;
+    public static final double HOOK_kI = 4.0;
+    public static final double HOOK_kD = 0.5;
+    public static final double HOOK_kV = 0.12;
+    public static final double HOOK_kA = 0.005;
+    public static final double HOOK_kG = 0.3;
+
+    public static final int ARM_MOTOR_ID = 97;
+    public static final String ARM_MOTOR_CANBUS = "canivore";
+    public static final int ARM_GEAR_RATIO = 90;
+    // public static final double ARM_MOTION_CRUISE_VELOCITY = 80.0;
+    // public static final double ARM_MOTION_ACCELERATION = 150.0;
+    // public static final double ARM_MOTION_JERK = 0.0;
+    // public static final double ARM_kP = 4.0;
+    // public static final double ARM_kI = 4.0;
+    // public static final double ARM_kD = 0.5;
+    // public static final double ARM_kV = 0.12;
+    // public static final double ARM_kA = 0.005;
+    
+    public static final double HOOK_EXTENDED_POSITION = 10.0;
+    public static final double HOOK_RETRACTED_POSITION = 0.0;
+    public static final double HOOK_ERROR_MARGIN = 0.5;
+
+    public static final double ARM_POWER = 0.3;
+
+    public static final double ARM_MIN = 0;
+    public static final double ARM_MAX = 100;
   }
 }

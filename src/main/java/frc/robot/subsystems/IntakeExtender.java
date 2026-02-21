@@ -146,6 +146,14 @@ public class IntakeExtender extends SubsystemBase {
         return Math.abs(getPositionDegrees() - targetPositionDegrees) <= Constants.IntakeExtenderConstants.POSITION_TOLERANCE_DEGREES;
     }
 
+    public boolean atUpPosition() {
+        return ((targetPositionDegrees == Constants.IntakeExtenderConstants.UP_POSITION_DEGREES) && atTargetPosition());
+    }
+
+    public boolean atDownPosition() {
+        return ((targetPositionDegrees == Constants.IntakeExtenderConstants.DOWN_POSITION_DEGREES) && atTargetPosition());
+    }
+
     public double getPositionDegrees() {
         double motorTicks = leaderMotor.getPosition().getValueAsDouble();
         return (motorTicks / (Constants.IntakeExtenderConstants.IntakeGearRatio * Constants.IntakeExtenderConstants.ENCODER_TICKS_PER_REVOLUTION)) * 360.0;
