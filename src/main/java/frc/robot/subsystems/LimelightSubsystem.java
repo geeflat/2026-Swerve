@@ -42,8 +42,8 @@ public class LimelightSubsystem extends SubsystemBase {
         ty = table.getEntry("ty");
         ta = table.getEntry("ta");
         tid = table.getEntry("tid");
-        botpose = table.getEntry("botpose_mt2");  // alliance-relative pose - using megatag2
-
+//        botpose = table.getEntry("botpose_mt2");  // alliance-relative pose - using megatag2
+        botpose = table.getEntry("botpose_wpiblue"); // absolute coordinte pose
         // Optional: set pipeline / LED mode etc. on init
         // table.getEntry("pipeline").setNumber(0);  // AprilTag pipeline
         // table.getEntry("ledMode").setNumber(0);   // default

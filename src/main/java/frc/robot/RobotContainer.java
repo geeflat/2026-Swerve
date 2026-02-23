@@ -41,8 +41,6 @@ import frc.robot.commands.CANdleSetColorCommand;
 import frc.robot.commands.DynamicAimCommand;
 import frc.robot.commands.ClimberArmDownCommand;
 import frc.robot.commands.ClimberArmUpCommand;
-import frc.robot.commands.ClimberHookExtendCommand;
-import frc.robot.commands.ClimberHookRetractCommand;
 
 import frc.robot.generated.TunerConstants;
 
@@ -159,13 +157,7 @@ public class RobotContainer {
 
         public Trigger climbRaiseArmTrigger = buttonBoard.button(Constants.OperatorConstants.CLIMB_RAISE_ARM_BUTTON);
         public Trigger climbLowerArmTrigger = buttonBoard.button(Constants.OperatorConstants.CLIMB_LOWER_ARM_BUTTON);
-        public Trigger extendHookTrigger = buttonBoard.button(Constants.OperatorConstants.EXTEND_HOOK_BUTTON);
-        public Trigger retractHookTrigger = buttonBoard.button(Constants.OperatorConstants.RETRACT_HOOK_BUTTON);
 
-    // Safety check triggers (so we don't have the HOOK and INTAKE_EXTENDER both extending beyond the perimeter at the same time)
-
-        public Trigger hookExtendedTrigger = new Trigger(climber::hookExtended);
-        public Trigger hookRetractedTrigger = new Trigger(climber::hookRetracted);
         public Trigger intakeExtenderUpTrigger = new Trigger(intakeExtender::atUpPosition);
         public Trigger intakeExtenderDownTrigger = new Trigger(intakeExtender::atDownPosition);
 
@@ -269,7 +261,6 @@ public class RobotContainer {
 
         climber.setDefaultCommand(
             Commands.parallel(
-                Commands.runOnce(climber::retractHook, climber),
                 Commands.run(climber::stopArm, climber)
             ));
     }
@@ -326,34 +317,12 @@ public class RobotContainer {
         // This trigger will activate when we first enter either the FIRE_ON_THE_MOVE or STOP_AND_SHOOT state, but not on subsequent scheduler runs while we're still in that state, due to the debounce.
         isShootingTrigger()
             .and(isShootingTrigger().negate().debounce(0.05))
-            .onTrue(
-                    Commands.runOnce(() -> {
-                        if (!climber.hookRetracted()) {         // check if hook is retracted
-                                new ClimberHookRetractCommand(climber).schedule();          // if not, send retract command, and wait 2 seconds for it to retract
-                                Commands.waitUntil(climber::hookRetracted).withTimeout(2.0).schedule();
-                        }
-                    new IntakeExtenderDown(intakeExtender);
-                    })
-        );
+            .onTrue(new IntakeExtenderDown(intakeExtender));
 
         // This trigger will activate when we leave the FIRE_ON_THE_MOVE state, but not on subsequent scheduler runs while we're still outside that state, due to the debounce.
         isShootingTrigger().and(isShootingTrigger().negate().debounce(0.05)).onFalse( 
             new IntakeExtenderUp(intakeExtender)
         );
-
-        // Similar rules for entering the climb state
-        climbTrigger()
-            .and(climbTrigger().negate().debounce(0.05))
-            .onTrue(
-                Commands.runOnce(() ->{
-                    if (!intakeExtender.atUpPosition()) {
-                        // Raise extender first if not safe
-                        new IntakeExtenderUp(intakeExtender).schedule();
-                        Commands.waitUntil(intakeExtender::atUpPosition).withTimeout(2.0).schedule();
-                    }
-                    new ClimberHookExtendCommand(climber);
-                })
-            );
 
         climbTrigger().and(climbRaiseArmTrigger.debounce(0.05)).onTrue(
             new ClimberArmUpCommand(climber)
@@ -361,14 +330,6 @@ public class RobotContainer {
 
         climbTrigger().and(climbLowerArmTrigger.debounce(0.05)).onTrue(
             new ClimberArmDownCommand(climber)
-        );
-
-        climbTrigger().and(extendHookTrigger.debounce(0.05)).and(intakeExtenderUpTrigger).onTrue(
-            new ClimberHookExtendCommand(climber)
-        );
-
-        climbTrigger().and(retractHookTrigger.debounce(0.05)).onTrue(
-            new ClimberHookRetractCommand(climber)
         );
 
         // for fire on the  move, turn on intake, index, and shooter (unless we're unjamming)
@@ -479,7 +440,6 @@ public class RobotContainer {
             .withSize(2, 1)
             .getEntry();
 
-
         // Display which region the robot is in - Blue Left, Red Right, etc.
         robotFieldEntry = robotStateTab
             .add("Field Location", "UNKNOWN")
@@ -523,7 +483,7 @@ public class RobotContainer {
             @Override public double getSpeedRpm() { return 0.0; }
             @Override public void setPositionDegrees(double d) {}
             @Override public double getPositionDegrees() { return 0.0; }
-            @Override public void applyPid(double kp, double ki, double kd) {}
+            @Override public void applyPid(double kp, double ki, double kd, double kv, double kg, double mmv, double mma) {}
         });
 
         ShuffleboardControl.registerVelocityMotor("Shooter", new MotorAccessor() {
@@ -533,7 +493,7 @@ public class RobotContainer {
             @Override public double getPower() { return 0.0; }
             @Override public void setPositionDegrees(double d) {}
             @Override public double getPositionDegrees() { return 0.0; }
-            @Override public void applyPid(double kp, double ki, double kd) { shooter.applyPid(kp, ki, kd); }
+            @Override public void applyPid(double kp, double ki, double kd, double kv, double kg, double mmv, double mma) { shooter.applyPid(kp, ki, kd, kv, kg, mmv, mma); }
         });
 
         ShuffleboardControl.registerPositionMotor("Intake Extender", new MotorAccessor() {
@@ -543,7 +503,7 @@ public class RobotContainer {
             @Override public double getPower() { return 0.0; }
             @Override public void setSpeed(double rpm) {}
             @Override public double getSpeedRpm() { return 0.0; }
-            @Override public void applyPid(double kp, double ki, double kd) { intakeExtender.applyPid(kp, ki, kd); }
+            @Override public void applyPid(double kp, double ki, double kd, double kv, double kg, double mmv, double mma) { intakeExtender.applyPid(kp, ki, kd, kv, kg, mmv, mma); }
         });
 
         ShuffleboardControl.registerPositionMotor("Hood", new MotorAccessor() {
@@ -553,7 +513,7 @@ public class RobotContainer {
             @Override public double getPower() { return 0.0; }
             @Override public void setSpeed(double rpm) {}
             @Override public double getSpeedRpm() { return 0.0; }
-            @Override public void applyPid(double kp, double ki, double kd) { hood.applyPid(kp, ki, kd); }
+            @Override public void applyPid(double kp, double ki, double kd, double kv, double kg, double mmv, double mma) { hood.applyPid(kp, ki, kd, kv, kg, mmv, mma); }
         });
 
         ShuffleboardControl.registerPositionMotor("Turret", new MotorAccessor() {
@@ -563,9 +523,18 @@ public class RobotContainer {
             @Override public double getPower() { return 0.0; }
             @Override public void setSpeed(double rpm) {}
             @Override public double getSpeedRpm() { return 0.0; }
-            @Override public void applyPid(double kp, double ki, double kd) { hood.applyPid(kp, ki, kd); }
+            @Override public void applyPid(double kp, double ki, double kd, double kv, double kg, double mmv, double mma) { turret.applyPid(kp, ki, kd, kv, kg, mmv, mma); }
         });
 
+        ShuffleboardControl.registerOpenLoopMotor("Arm", new MotorAccessor() {
+            @Override public void setSpeed(double rpm) {  }
+            @Override public double getSpeedRpm() { return 0.0; }
+            @Override public void setPower(double p) { climber.setArmPower(p); }
+            @Override public double getPower() { return climber.getPower(); }
+            @Override public void setPositionDegrees(double d) { }
+            @Override public double getPositionDegrees() { return climber.getArmPosition(); }
+            @Override public void applyPid(double kp, double ki, double kd, double kv, double kg, double mmv, double mma) { }
+        });
     }
 
     public Command getAutonomousCommand() {

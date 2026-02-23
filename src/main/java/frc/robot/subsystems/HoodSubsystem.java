@@ -141,10 +141,12 @@ public class HoodSubsystem extends SubsystemBase {
     // This method will be called once per scheduler run during simulation
   }
 
-  public void applyPid(double kp, double ki, double kd) {
-    Slot0Configs slot0 = new Slot0Configs().withKP(kp).withKI(ki).withKD(kd);
+  public void applyPid(double kp, double ki, double kd, double kv, double kg, double mmv, double mma) {
+    Slot0Configs slot0 = new Slot0Configs().withKP(kp).withKI(ki).withKD(kd).withKV(kv).withKG(kg);
     TalonFXConfiguration config = new TalonFXConfiguration();
     config.Slot0 = slot0;
+    config.MotionMagic.MotionMagicCruiseVelocity = mmv / 360 * Constants.HoodConstants.GEAR_RATIO;
+    config.MotionMagic.MotionMagicAcceleration = mma / 360 * Constants.HoodConstants.GEAR_RATIO;
     hoodMotor.getConfigurator().apply(config);
   }
 

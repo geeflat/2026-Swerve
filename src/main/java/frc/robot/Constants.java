@@ -247,34 +247,9 @@ public final class Constants {
   }
 
   public static class ClimbConstants{
-    public static final int HOOK_MOTOR_ID = 98;
-    public static final String HOOK_MOTOR_CANBUS = "canivore";
-    public static final int HOOK_GEAR_RATIO = 1;
-    public static final double HOOK_MOTION_CRUISE_VELOCITY = 80.0;
-    public static final double HOOK_MOTION_ACCELERATION = 150.0;
-    public static final double HOOK_MOTION_JERK = 0.0;
-    public static final double HOOK_kP = 4.0;
-    public static final double HOOK_kI = 4.0;
-    public static final double HOOK_kD = 0.5;
-    public static final double HOOK_kV = 0.12;
-    public static final double HOOK_kA = 0.005;
-    public static final double HOOK_kG = 0.3;
-
     public static final int ARM_MOTOR_ID = 97;
     public static final String ARM_MOTOR_CANBUS = "canivore";
     public static final int ARM_GEAR_RATIO = 90;
-    // public static final double ARM_MOTION_CRUISE_VELOCITY = 80.0;
-    // public static final double ARM_MOTION_ACCELERATION = 150.0;
-    // public static final double ARM_MOTION_JERK = 0.0;
-    // public static final double ARM_kP = 4.0;
-    // public static final double ARM_kI = 4.0;
-    // public static final double ARM_kD = 0.5;
-    // public static final double ARM_kV = 0.12;
-    // public static final double ARM_kA = 0.005;
-    
-    public static final double HOOK_EXTENDED_POSITION = 10.0;
-    public static final double HOOK_RETRACTED_POSITION = 0.0;
-    public static final double HOOK_ERROR_MARGIN = 0.5;
 
     public static final double ARM_POWER = 0.3;
 

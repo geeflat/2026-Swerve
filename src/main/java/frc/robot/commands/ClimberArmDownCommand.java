@@ -36,7 +36,7 @@ public class ClimberArmDownCommand extends Command {
   // Called once the command ends or is interrupted.
   @Override
   public void end(boolean interrupted) {
-    m_subsystem.stopHook();
+    m_subsystem.stopArm();
   }
 
   // Returns true when the command should end.
@@ -44,4 +44,5 @@ public class ClimberArmDownCommand extends Command {
   public boolean isFinished() {
     return false;
   }
+
 }

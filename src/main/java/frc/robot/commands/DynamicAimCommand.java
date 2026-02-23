@@ -1,7 +1,11 @@
 package frc.robot.commands;
 
+import javax.lang.model.util.ElementScanner14;
+
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.TurretSubsystem;
 import frc.robot.subsystems.HoodSubsystem;
@@ -10,6 +14,7 @@ import frc.robot.BallisticCalculator;
 import frc.robot.Constants;
 import frc.robot.FieldConstants;           // for hub positions
 import frc.robot.RobotContainer;          // to get current field region / pose
+import frc.robot.FieldConstants.FieldRegion;
 
 public class DynamicAimCommand extends Command {
 
@@ -34,31 +39,51 @@ public class DynamicAimCommand extends Command {
         System.out.println("Pose X = "+ robotPose.getX() + " Y = " + robotPose.getY() + " T = " + robotPose.getRotation());
 
         // Get the correct hub target based on current field region / alliance
-        Translation2d targetPos = getTargetHubPosition();
+        Translation2d targetPos = getTargetPosition();
+
+        double target_height = ((targetPos == FieldConstants.RED_HUB_TARGET) || (targetPos == FieldConstants.BLUE_HUB_TARGET) ? Constants.ballisticConstants.HUB_HEIGHT : 0.0);
 
         BallisticCalculator.BallisticSolution solution = 
             BallisticCalculator.getAngles(
                 robotPose,
                 targetPos,
                 robotSpeeds,
-                Constants.ballisticConstants.HUB_HEIGHT
+                target_height
             );
 
         turret.setPositionDegrees(solution.turretAngleDegrees);
         hood.setPositionDegrees(solution.hoodAngleDegrees);
     }
 
-    private Translation2d getTargetHubPosition() {
-        // Use your existing field state logic
+    private Translation2d getTargetPosition() {
+        Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+
         FieldConstants.FieldRegion region = robotContainer.getFieldLocation();
 
-        if (region.toString().contains("BLUE")) {
-            return FieldConstants.BLUE_HUB_TARGET;   // define these in FieldConstants
-        } else if (region.toString().contains("RED"))
-        {
-            return FieldConstants.RED_HUB_TARGET;
+        boolean isBlue = alliance == Alliance.Blue;
+
+        if (isBlue) {
+            if ((region == FieldRegion.BLUE_DEEP_LEFT)
+                || (region == FieldRegion.BLUE_FRONT_LEFT)
+                || (region == FieldRegion.BLUE_DEEP_RIGHT)
+                || (region == FieldRegion.BLUE_FRONT_RIGHT)
+                || (region == FieldRegion.BLUE_LEFT_BUMP)
+                || (region == FieldRegion.BLUE_LEFT_TRENCH))
+                    return FieldConstants.BLUE_HUB_TARGET;
+            else if (region == FieldRegion.NEUTRAL_LEFT) return FieldConstants.BLUE_LEFT_TARGET;
+            else return FieldConstants.BLUE_RIGHT_TARGET;
         }
-        return FieldConstants.RED_HUB_TARGET;
+        else{
+            if ((region == FieldRegion.RED_DEEP_LEFT)
+                || (region == FieldRegion.RED_FRONT_LEFT)
+                || (region == FieldRegion.RED_DEEP_RIGHT)
+                || (region == FieldRegion.RED_FRONT_RIGHT)
+                || (region == FieldRegion.RED_LEFT_BUMP)
+                || (region == FieldRegion.RED_LEFT_TRENCH))
+                    return FieldConstants.RED_HUB_TARGET;
+            else if (region == FieldRegion.NEUTRAL_LEFT) return FieldConstants.RED_LEFT_TARGET;
+            else return FieldConstants.RED_RIGHT_TARGET;
+        }
     }
 
     @Override

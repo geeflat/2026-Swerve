@@ -13,29 +13,19 @@ import com.ctre.phoenix6.signals.NeutralModeValue;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import com.ctre.phoenix6.controls.Follower;
-
-import frc.robot.ShuffleboardControl;
 
 import frc.robot.Constants;
 
 public class IndexSubsystem extends SubsystemBase {
 
   private TalonFX horizontalIndexMotor;
-  private TalonFX verticalIndexLeader;
-  private TalonFX verticalIndexFollower;
+  private TalonFX verticalIndexMotor;
 
   /** Creates a new IndexSubsystem. */
   public IndexSubsystem() {
 
     horizontalIndexMotor = new TalonFX(Constants.IndexConstants.horizontalIndexMotorID, Constants.IndexConstants.horizontalIndexMotorCANBus);
-    verticalIndexLeader = new TalonFX(Constants.IndexConstants.verticalIndexMotorID, Constants.IndexConstants.verticalIndexMotorCANBus);
-    verticalIndexFollower = new TalonFX(Constants.IndexConstants.verticalIndexFollowerID, Constants.IndexConstants.verticalIndexFollowerCANBus);
-
-    verticalIndexFollower.setControl(new Follower(verticalIndexLeader.getDeviceID(),
-      Constants. IndexConstants.INVERT_FOLLOWER
-        ? MotorAlignmentValue.Opposed
-        : MotorAlignmentValue.Aligned));
+    verticalIndexMotor = new TalonFX(Constants.IndexConstants.verticalIndexMotorID, Constants.IndexConstants.verticalIndexMotorCANBus);
 
     var config = new TalonFXConfiguration();
     config.CurrentLimits.SupplyCurrentLimit = Constants.IndexConstants.INDEX_CURRENT_LIMIT;
@@ -43,9 +33,7 @@ public class IndexSubsystem extends SubsystemBase {
     config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
 
     horizontalIndexMotor.getConfigurator().apply(config);
-    verticalIndexLeader.getConfigurator().apply(config);
-    verticalIndexFollower.getConfigurator().apply(config);
-
+    verticalIndexMotor.getConfigurator().apply(config);
   }
 
   public void horizontalSpeed(double velocity) {
@@ -53,7 +41,7 @@ public class IndexSubsystem extends SubsystemBase {
   }
 
   public void verticalSpeed(double velocity) {
-    verticalIndexLeader.setControl(new DutyCycleOut(velocity));
+    verticalIndexMotor.setControl(new DutyCycleOut(velocity));
   }
 
   public void stop() {

@@ -90,7 +90,7 @@ public class ShuffleboardControl {
                 .getEntry();
 
         motorGroups.add(new MotorControlGroup(accessor, MotorControlType.OPEN_LOOP_POWER,
-                enabled, power, current, null, null, null, null, null));
+                enabled, power, current, null, null, null, null, null, null, null, null, null));
     }
 
     private static void addVelocityControls(ShuffleboardLayout layout, MotorAccessor accessor) {
@@ -111,13 +111,14 @@ public class ShuffleboardControl {
         GenericEntry kp = layout.add("kP", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
         GenericEntry ki = layout.add("kI", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
         GenericEntry kd = layout.add("kD", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
+    
         GenericEntry apply = layout.add("Apply PID", false)
                 .withWidget(BuiltInWidgets.kToggleButton)
                 .withProperties(Map.of("true color", "#00FF00", "false color", "#808080"))
                 .getEntry();
 
         motorGroups.add(new MotorControlGroup(accessor, MotorControlType.CLOSED_LOOP_VELOCITY,
-                enabled, rpm, currentRpm, null, kp, ki, kd, apply));
+                enabled, rpm, currentRpm, null, kp, ki, kd, null, null, null, null, apply));
     }
 
     private static void addPositionControls(ShuffleboardLayout layout, MotorAccessor accessor) {
@@ -138,13 +139,18 @@ public class ShuffleboardControl {
         GenericEntry kp = layout.add("kP", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
         GenericEntry ki = layout.add("kI", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
         GenericEntry kd = layout.add("kD", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
+        GenericEntry kv = layout.add("kv", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
+        GenericEntry kg = layout.add("kv", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
+        GenericEntry mmv = layout.add("Motion Magic Velocity (rot/s)", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
+        GenericEntry mma = layout.add("Motion Magic Accel. (rot/s^2)", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
+        
         GenericEntry apply = layout.add("Apply PID", false)
                 .withWidget(BuiltInWidgets.kToggleButton)
                 .withProperties(Map.of("true color", "#00FF00", "false color", "#808080"))
                 .getEntry();
 
         motorGroups.add(new MotorControlGroup(accessor, MotorControlType.POSITION_CONTROL,
-                null, pos, currentPos, go, kp, ki, kd, apply));
+                null, pos, currentPos, go, kp, ki, kd, kv, kg, mmv, mma, apply));
     }
 
     public static void update() {
@@ -172,6 +178,10 @@ public class ShuffleboardControl {
         private final GenericEntry kpEntry;
         private final GenericEntry kiEntry;
         private final GenericEntry kdEntry;
+        private final GenericEntry kvEntry;
+        private final GenericEntry kgEntry;
+        private final GenericEntry mmVEntry;
+        private final GenericEntry mmAEntry;
         private final GenericEntry applyPidButton;
 
         private boolean lastApplyState = false;
@@ -179,7 +189,9 @@ public class ShuffleboardControl {
         MotorControlGroup(MotorAccessor accessor, MotorControlType type,
                           GenericEntry enabled, GenericEntry setpoint, GenericEntry currentValue,
                           GenericEntry goButton,
-                          GenericEntry kp, GenericEntry ki, GenericEntry kd, GenericEntry apply) {
+                          GenericEntry kp, GenericEntry ki, GenericEntry kd, GenericEntry kv, GenericEntry kg,
+                          GenericEntry mmV, GenericEntry mmA,
+                          GenericEntry apply) {
             this.accessor = accessor;
             this.type = type;
             this.enabled = enabled;
@@ -189,6 +201,10 @@ public class ShuffleboardControl {
             this.kpEntry = kp;
             this.kiEntry = ki;
             this.kdEntry = kd;
+            this.kvEntry = kv;
+            this.kgEntry = kg;
+            this.mmVEntry= mmV;
+            this.mmAEntry= mmA;
             this.applyPidButton = apply;
         }
 
@@ -235,8 +251,12 @@ public class ShuffleboardControl {
                     double kp = kpEntry.getDouble(0.0);
                     double ki = kiEntry.getDouble(0.0);
                     double kd = kdEntry.getDouble(0.0);
+                    double kv = kvEntry.getDouble(0.0);
+                    double kg = kgEntry.getDouble(0.0);
+                    double mmV = mmVEntry.getDouble(0.0);
+                    double mmA = mmAEntry.getDouble(0.0);
 
-                    accessor.applyPid(kp, ki, kd);
+                    accessor.applyPid(kp, ki, kd, kv, kg, mmV, mmA);
 
                     System.out.println("Applied PID: kP=" + kp + ", kI=" + ki + ", kD=" + kd);
 
@@ -257,6 +277,6 @@ public class ShuffleboardControl {
         double getSpeedRpm();
         double getPositionDegrees();
 
-        void applyPid(double kp, double ki, double kd);
+        void applyPid(double kp, double ki, double kd, double kv, double kg, double mmv, double mma);
     }
 }
