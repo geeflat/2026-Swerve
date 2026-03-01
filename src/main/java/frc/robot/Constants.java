@@ -5,6 +5,10 @@
 package frc.robot;
 
 import edu.wpi.first.math.util.Units;
+
+import com.pathplanner.lib.config.PIDConstants;
+
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.util.Color;
@@ -39,8 +43,7 @@ public final class Constants {
 
     public static final int CLIMB_RAISE_ARM_BUTTON = 8;
     public static final int CLIMB_LOWER_ARM_BUTTON = 9;
-    public static final int EXTEND_HOOK_BUTTON     = 10;
-    public static final int RETRACT_HOOK_BUTTON    = 11;
+    public static final int TOGGLE_DRIVE_MODE_BUTTON = 10;
   }
 
   public static class IntakeConstants {
@@ -194,10 +197,11 @@ public final class Constants {
    public static class robotStates {
       public enum State{
         FIRE_ON_THE_MOVE, // intake, index, and shoot on the move, disable climb motors
-        STOP_AND_SHOOT,       // stop the robot and shoot, no fire on the move, disable climb motors
+        STOP_AND_SHOOT,   // stop the robot and shoot, no fire on the move, disable climb motors
         PUSH,             // motor problems, switch to defensive mode
         CLIMB,            // active during endgame - disengage other motors and engage climb motors
-        IDLE              // default state, all motors off
+        IDLE,             // default state, all motors off
+        CALIBRATION       // for initial calibration of motors
       }
   }
 
@@ -255,5 +259,10 @@ public final class Constants {
 
     public static final double ARM_MIN = 0;
     public static final double ARM_MAX = 100;
+  }
+
+  public static class PathPlannerConstants {
+    public static final PIDConstants PP_TRANSLATION_PID = new PIDConstants(5.0, 0.0, 0.0);
+    public static final PIDConstants PP_ROTATION_PID = new PIDConstants(3.0, 0.0, 0.0);
   }
 }

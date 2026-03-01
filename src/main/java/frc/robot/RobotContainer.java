@@ -67,6 +67,7 @@ import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 
 // import frc.robot.Constants;
 
@@ -144,6 +145,10 @@ public class RobotContainer {
             return new Trigger(() -> currentState == Constants.robotStates.State.STOP_AND_SHOOT);
         }
 
+        public Trigger calibrationTrigger() {
+            return new Trigger(() -> currentState == Constants.robotStates.State.CALIBRATION);
+        }
+
     // Linking "fire on move" and "stop and shoot" as these have similar commands
 
         public Trigger isShootingTrigger() {
@@ -158,8 +163,12 @@ public class RobotContainer {
         public Trigger climbRaiseArmTrigger = buttonBoard.button(Constants.OperatorConstants.CLIMB_RAISE_ARM_BUTTON);
         public Trigger climbLowerArmTrigger = buttonBoard.button(Constants.OperatorConstants.CLIMB_LOWER_ARM_BUTTON);
 
-        public Trigger intakeExtenderUpTrigger = new Trigger(intakeExtender::atUpPosition);
-        public Trigger intakeExtenderDownTrigger = new Trigger(intakeExtender::atDownPosition);
+        // removed these triggers as we were only using them to check if the climber hook & intake extender were both extended at the same time (illegal)
+        // Keeping them here for posterity, and in case we want to use them later. Bute note that this will cause a crash. Better to declare here:
+            // e.g. "public Trigger intakeExtenderUpTrigger;"
+            // and later initialize them in configureBindings() { ... intakeExtenderUpTrigger = new Trigger(intakeExtender::atUpPosition)}
+        // public Trigger intakeExtenderUpTrigger = new Trigger(intakeExtender::atUpPosition);
+        // public Trigger intakeExtenderDownTrigger = new Trigger(intakeExtender::atDownPosition);
 
     // Fire button on buttonboard
     public Trigger fireButton() {
@@ -171,6 +180,8 @@ public class RobotContainer {
         double errorDeg = Math.abs(turret.getPositionDegrees() - turret.getTargetPositionDegrees());
         return errorDeg > TurretConstants.LARGE_ERROR;
     });
+
+    private boolean isRobotRelative = false; // boolean to switch between fixed/field centric (false) and relative/robot centric (true)
 
     public RobotContainer() {
 
@@ -198,7 +209,7 @@ public class RobotContainer {
         configureShuffleboard();
 
         // Default robot state. Temporarily moved from IDLE to FOM. Depending on operator preference we may want to set this differently.
-        setRobotState(Constants.robotStates.State.FIRE_ON_THE_MOVE);
+        setRobotState(Constants.robotStates.State.CALIBRATION);
     }
 
     // Set defaults for the various subsystems.
@@ -207,8 +218,11 @@ public class RobotContainer {
         drivetrain.setDefaultCommand(
         // Drivetrain will execute this command periodically
             drivetrain.applyRequest(() -> {
-                double leftY = joystick.getLeftY();
-                double leftX = -joystick.getLeftX();
+
+                double AllianceFactor = DriverStation.getAlliance().orElse(Alliance.Red) == Alliance.Red ? 1.0 : -1.0 ;
+
+                double leftY = joystick.getLeftY() * AllianceFactor;
+                double leftX = -joystick.getLeftX() * AllianceFactor;
                 double rightX = -joystick.getRightX();
 
                 double deadband = 0.12;                             // added a deadband because my joysticks do not default to 0/0/0
@@ -220,7 +234,17 @@ public class RobotContainer {
                 double vy = leftY * MaxSpeed;
                 double omega = rightX * MaxAngularRate;
 
-                return drive.withVelocityX(vx).withVelocityY(vy).withRotationalRate(omega);
+                if(isRobotRelative) {
+                    return new SwerveRequest.RobotCentric()
+                        .withVelocityX(vx)
+                        .withVelocityY(vy)
+                        .withRotationalRate(omega);
+                } else {
+                    return new SwerveRequest.FieldCentric()
+                        .withVelocityX(vx)
+                        .withVelocityY(vy)
+                        .withRotationalRate(omega);
+                }    
 
                 // This section is used for limiting the robot's ability to drive into/near obstacles (HUB, Walls, etc.)
                 // having some issues with the robot getting stuck inside obstacles during sim, we can revisit boundaries when physical robot is available
@@ -234,6 +258,7 @@ public class RobotContainer {
                 //     .withRotationalRate(safe.omegaRadiansPerSecond * MaxAngularRate); // Drive counterclockwise with negative X (left)
             })
         );
+
 
         intake.setDefaultCommand(
             Commands.run(intake::stop, intake)
@@ -353,7 +378,7 @@ public class RobotContainer {
             )
         );
 
-        fireOnMoveTrigger().whileTrue(new DynamicAimCommand(turret, hood, this));                                          // in "FOM" state we 
+        fireOnMoveTrigger().whileTrue(new DynamicAimCommand(turret, hood, this));                                          // in "FOM" state we use dynamic aiming
 
         // for stop and shoot, if we're not unjamming or shooting, turn on the intake, turn off shooter & index.
         stopAndShootTrigger()
@@ -426,11 +451,25 @@ public class RobotContainer {
             )
         );
 
+        calibrationTrigger().whileTrue(
+            Commands.parallel(
+                new IntakeStopCommand(intake),
+                new IndexStopCommand(index),
+                new ShooterStopCommand(shooter)
+            )
+        );
+
+        // toggle between fixed and relative drive:
+        buttonBoard.button(Constants.OperatorConstants.TOGGLE_DRIVE_MODE_BUTTON)
+            .onTrue(Commands.runOnce(() -> {
+                isRobotRelative = !isRobotRelative;
+            }));
+
     }
 
     // separate function for the sophisticated shuffleboard control so we can comment them out for competition (we don't want to be able to adjust PID once they're set)
     public void configureShuffleboard(){
-        ShuffleboardControl.setupDashboard();
+        ShuffleboardControl.setupDashboard(currentState);
 
         // Display robot state - Fire on Move, Stop & Shoot, etc.
         robotStateEntry = robotStateTab
@@ -580,6 +619,7 @@ public class RobotContainer {
             case CLIMB -> "Climb";
             case IDLE -> "Idle";
             case STOP_AND_SHOOT -> "Stop and Shoot";
+            case CALIBRATION -> "Calibration";
             default -> "none";
         };
     }

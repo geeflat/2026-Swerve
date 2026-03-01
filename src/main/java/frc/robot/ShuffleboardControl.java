@@ -24,14 +24,19 @@ public class ShuffleboardControl {
     private static GenericEntry emergencyStopEntry;
     private static final List<MotorControlGroup> motorGroups = new ArrayList<>();
 
+    private static boolean calibrating;
+
     public enum MotorControlType {
         OPEN_LOOP_POWER,
         CLOSED_LOOP_VELOCITY,
         POSITION_CONTROL
     }
 
-    public static void setupDashboard() {
+    public static void setupDashboard(Constants.robotStates.State opState) {
         // Emergency stop on its own prominent tab
+
+        calibrating = (opState == Constants.robotStates.State.CALIBRATION);
+
         emergencyStopEntry = estopTab
             .add("EMERGENCY STOP ALL", false)
             .withWidget(BuiltInWidgets.kToggleButton)
@@ -139,8 +144,8 @@ public class ShuffleboardControl {
         GenericEntry kp = layout.add("kP", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
         GenericEntry ki = layout.add("kI", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
         GenericEntry kd = layout.add("kD", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
-        GenericEntry kv = layout.add("kv", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
-        GenericEntry kg = layout.add("kv", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
+        GenericEntry kv = layout.add("kV", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
+        GenericEntry kg = layout.add("kG", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
         GenericEntry mmv = layout.add("Motion Magic Velocity (rot/s)", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
         GenericEntry mma = layout.add("Motion Magic Accel. (rot/s^2)", 0.0).withWidget(BuiltInWidgets.kTextView).getEntry();
         
@@ -217,26 +222,27 @@ public class ShuffleboardControl {
         }
 
         void update() {
+
             boolean isEnabled = enabled != null && enabled.getBoolean(false);
 
             // Normal motor control
             switch (type) {
                 case OPEN_LOOP_POWER:
                     double power = setpoint.getDouble(0.0);
-                    accessor.setPower(power);
+                    if (calibrating) accessor.setPower(power);
                     if (currentValue != null) currentValue.setDouble(accessor.getPower());
                     break;
 
                 case CLOSED_LOOP_VELOCITY:
                     double rpm = setpoint.getDouble(0.0);
-                    accessor.setSpeed(rpm);
+                    if (calibrating) accessor.setSpeed(rpm);
                     if (currentValue != null) currentValue.setDouble(accessor.getSpeedRpm());
                     break;
 
                 case POSITION_CONTROL:
                     if (goButton != null && goButton.getBoolean(false)) {
                         double target = setpoint.getDouble(0.0);
-                        accessor.setPositionDegrees(target);
+                        if (calibrating) accessor.setPositionDegrees(target);
                         goButton.setBoolean(false);
                     }
                     if (currentValue != null) currentValue.setDouble(accessor.getPositionDegrees());
@@ -244,7 +250,7 @@ public class ShuffleboardControl {
             }
 
             // PID Apply - rising edge detection (always runs)
-            if (applyPidButton != null) {
+            if ((applyPidButton != null) && calibrating) {
                 boolean currentApply = applyPidButton.getBoolean(false);
 
                 if (currentApply && !lastApplyState) {
@@ -258,7 +264,7 @@ public class ShuffleboardControl {
 
                     accessor.applyPid(kp, ki, kd, kv, kg, mmV, mmA);
 
-                    System.out.println("Applied PID: kP=" + kp + ", kI=" + ki + ", kD=" + kd);
+                    System.out.println("Applied PID: kP=" + kp + ", kI=" + ki + ", kD=" + kd + "kV= " + kv + "kG= " + kg + "mmV= " + mmV + "mmA = " + mmA);
 
                     applyPidButton.setBoolean(false);
                 }
