@@ -252,4 +252,5 @@ public class IntakeExtender extends SubsystemBase {
         config.MotionMagic.MotionMagicAcceleration = mma;
         leaderMotor.getConfigurator().apply(config);
   }
+
 }

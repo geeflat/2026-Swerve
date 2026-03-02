@@ -239,7 +239,7 @@ public class RobotContainer {
                         .withVelocityX(vx)
                         .withVelocityY(vy)
                         .withRotationalRate(omega);
-                } else {
+                    } else {
                     return new SwerveRequest.FieldCentric()
                         .withVelocityX(vx)
                         .withVelocityY(vy)

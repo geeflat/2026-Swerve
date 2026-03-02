@@ -26,6 +26,7 @@ public class IntakeExtenderUp extends Command {
   // Called when the command is initially scheduled.
   @Override
   public void initialize() {
+    m_subsystem.stopHoldPosition();
     m_subsystem.extenderUp();
   }
 
