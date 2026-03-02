@@ -7,6 +7,7 @@ package frc.robot.commands;
 import frc.robot.subsystems.IntakeExtender;
 import edu.wpi.first.wpilibj2.command.Command;
 
+
 /** An example command that uses an example subsystem. */
 public class IntakeExtenderUp extends Command {
   @SuppressWarnings("PMD.UnusedPrivateField")
@@ -26,7 +27,6 @@ public class IntakeExtenderUp extends Command {
   // Called when the command is initially scheduled.
   @Override
   public void initialize() {
-    m_subsystem.stopHoldPosition();
     m_subsystem.extenderUp();
   }
 
