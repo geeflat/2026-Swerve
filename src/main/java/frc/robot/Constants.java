@@ -47,17 +47,14 @@ public final class Constants {
   }
 
   public static class IntakeConstants {
-    public static final int intakeMotor1ID = 0;
-    public static final String intakemotor1CANBus = "canivore1";
+    public static final int intakeMotor1ID = 45;
+    public static final String intakemotor1CANBus = "rio";
     public static final double INTAKE_POWER_PERCENT = 0.3;
   }
 
   public static class ShooterConstants {
-    public static final int shooterMotor1ID = 1;
-    public static final String shootermotor1CANBus = "canivore";
-
-    public static final int shootermotor2ID = 7;
-    public static final String shootermotor2CANBus = "canivore";
+    public static final int shooterMotor1ID = 0;
+    public static final String shootermotor1CANBus = "rio";
 
     public static final double SHOOTER_SPEED = 0.5;
 
@@ -73,10 +70,10 @@ public final class Constants {
   }
 
   public static class IntakeExtenderConstants{
-    public static final int leaderExtenderID = 2;
-    public static final String leaderExtenderCANBus = "canivore";
-    public static final int followerExtenderID = 3;
-    public static final String followerExtenderCANBus = "canivore";
+    public static final int leaderExtenderID = 46;
+    public static final String leaderExtenderCANBus = "rio";
+    public static final int followerExtenderID = 48;
+    public static final String followerExtenderCANBus = "rio";
 
     public static final int IntakeGearRatio = 12;
 
@@ -106,16 +103,11 @@ public final class Constants {
   }
 
   public static class IndexConstants {
-    public static final int horizontalIndexMotorID = 4;
-    public static final String horizontalIndexMotorCANBus = "canivore";
+    public static final int horizontalIndexMotorID = 17;
+    public static final String horizontalIndexMotorCANBus = "rio";
 
-    public static final int verticalIndexMotorID = 5;
-    public static final String verticalIndexMotorCANBus = "canivore";
-
-    public static final int verticalIndexFollowerID = 6;
-    public static final String verticalIndexFollowerCANBus = "canivore";
-
-    public static final boolean INVERT_FOLLOWER = false;
+    public static final int verticalIndexMotorID = 18;
+    public static final String verticalIndexMotorCANBus = "rio";
 
     public static final double HORIZONTAL_INDEX_SPEED = 0.3;
     public static final double VERTICAL_INDEX_SPEED = 0.3;
@@ -125,8 +117,8 @@ public final class Constants {
    }
 
    public static class TurretConstants {
-      public static final int turretMotorID = 7;
-      public static final String turretMotorCANBus = "canivore";
+      public static final int turretMotorID = 99;
+      public static final String turretMotorCANBus = "rio";
 
       public static final double kP = 0.8;
       public static final double kI = 0.0; 
@@ -161,8 +153,11 @@ public final class Constants {
    }
 
    public static class HoodConstants {
-      public static final int hoodMotorID = 8;
-      public static final String hoodMotorCANBus = "canivore";
+      public static final int hoodMotorID = 31;
+      public static final String hoodMotorCANBus = "rio";
+
+      public static final int hoodEncoderID = 0;
+      public static final String hoodEncoderCANBus = "rio";
 
       public static final double kP = 0.8;
       public static final double kI = 0.0;
@@ -192,6 +187,7 @@ public final class Constants {
       public static final boolean INVERT_MOTOR = false;
 
       public static final double FF_CAP = 0.3; // cap for feedforward to prevent excessive values
+
    }
 
    public static class robotStates {
@@ -229,8 +225,8 @@ public final class Constants {
   }
 
   public static class CandleConstants{
-    public static final int CANDLE_DEVICE_ID = 99;
-    public static final String CANDLE_CANBUS = "canivore";
+    public static final int CANDLE_DEVICE_ID = 98;
+    public static final String CANDLE_CANBUS = "rio";
 
     // robot state colors
     public static final Color READY_TO_SHOOT_COLOR  = Color.kGreen;             // default state is the robot ready to shoot
@@ -251,8 +247,8 @@ public final class Constants {
   }
 
   public static class ClimbConstants{
-    public static final int ARM_MOTOR_ID = 97;
-    public static final String ARM_MOTOR_CANBUS = "canivore";
+    public static final int ARM_MOTOR_ID = 7;
+    public static final String ARM_MOTOR_CANBUS = "rio";
     public static final int ARM_GEAR_RATIO = 90;
 
     public static final double ARM_POWER = 0.3;

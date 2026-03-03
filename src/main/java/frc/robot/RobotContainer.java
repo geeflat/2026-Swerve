@@ -203,13 +203,19 @@ public class RobotContainer {
             drivetrain.resetPose(new Pose2d( 0.5, 0.5, new Rotation2d(0)));
         }
 
+
+        // Default robot state. Temporarily moved from IDLE to FOM. Depending on operator preference we may want to set this differently.
+        setRobotState(Constants.robotStates.State.CALIBRATION);
+        
         // Run configuration files to set up everything.
         configureBindings();
         configureDefaults();
         configureShuffleboard();
 
-        // Default robot state. Temporarily moved from IDLE to FOM. Depending on operator preference we may want to set this differently.
-        setRobotState(Constants.robotStates.State.CALIBRATION);
+        if (currentState == Constants.robotStates.State.CALIBRATION) {
+            Timer.delay(1.0);
+            Shuffleboard.update();
+        }
     }
 
     // Set defaults for the various subsystems.
@@ -269,7 +275,7 @@ public class RobotContainer {
         ); // default to stopped when not called
 
         intakeExtender.setDefaultCommand(
-            Commands.run(intakeExtender::extenderUp, intakeExtender)
+            Commands.run(intakeExtender::stop, intakeExtender)
         ); // default to stopped when not called
 
         index.setDefaultCommand(

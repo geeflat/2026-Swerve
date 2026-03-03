@@ -26,7 +26,7 @@ private TalonFX shooterMotor2;
 public ShooterSubsystem() {
 
     shooterMotor1 = new TalonFX(Constants.ShooterConstants.shooterMotor1ID, Constants.ShooterConstants.shootermotor1CANBus);
-    shooterMotor2 = new TalonFX(Constants.ShooterConstants.shootermotor2ID, Constants.ShooterConstants.shootermotor2CANBus);
+
     var slot0Configs = new Slot0Configs();
     slot0Configs.kS = Constants.ShooterConstants.kS;
     slot0Configs.kV = Constants.ShooterConstants.kV;
@@ -35,11 +35,6 @@ public ShooterSubsystem() {
     slot0Configs.kD = Constants.ShooterConstants.kD;
     
     shooterMotor1.getConfigurator().apply(slot0Configs);
-
-    shooterMotor2.setControl(new Follower(shooterMotor1.getDeviceID(),
-      Constants.ShooterConstants.INVERT_FOLLOWER
-        ? MotorAlignmentValue.Opposed
-        : MotorAlignmentValue.Aligned));
   }
 
   /**
@@ -89,7 +84,7 @@ public ShooterSubsystem() {
 
   @Override
   public void periodic() {
-    shoot();
+    // shoot();
     // This method will be called once per scheduler run
   }
 

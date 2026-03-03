@@ -231,13 +231,13 @@ public class IntakeExtender extends SubsystemBase {
     @Override
     public void periodic() {
         // This method will be called once per scheduler run
-        double gravityFF = calculateGravityFF();
+        // double gravityFF = calculateGravityFF();
 
-        if (targetPositionDegrees != Double.NaN){
-            motionMagicRequest.FeedForward = gravityFF;
-            motionMagicRequest.Position = currentTargetTicks;
-            leaderMotor.setControl(motionMagicRequest);
-        }
+        // if (targetPositionDegrees != Double.NaN){
+        //     motionMagicRequest.FeedForward = gravityFF;
+        //     motionMagicRequest.Position = currentTargetTicks;
+        //     leaderMotor.setControl(motionMagicRequest);
+        // }
     }
 
     @Override
