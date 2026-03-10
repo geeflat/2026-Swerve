@@ -188,6 +188,7 @@ public final class Constants {
 
       public static final double FF_CAP = 0.3; // cap for feedforward to prevent excessive values
 
+
    }
 
    public static class robotStates {
@@ -210,6 +211,11 @@ public final class Constants {
     public static final int MAX_ATTEMPTS = 10; // max iterations for binary search in ballistic calculator
 
     public static final double HOOD_HEIGHT_ERROR_TOLERANCE = Units.feetToMeters(1); // height of tolerance for hood height solution in ballistic calculator
+    
+    public static final double MIN_SHOOTER_SPEED = 5.0;
+    public static final double MAX_SHOOTER_SPEED = 40.0;
+    
+    public static final double FIXED_HOOD_ANGLE = 40.0;
   }
 
   public static class BoundaryConstants{
